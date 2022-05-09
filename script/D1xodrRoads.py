@@ -813,7 +813,7 @@ def get_rect(x, y, width, length, angle):
     transformed_rect = np.dot(rect, R) + offset
     return transformed_rect
 
-def lanepos2_worldxy(lane, position):  # 根据车辆当前状态更新车辆x,y坐标信息
+def lanepos2_worldxy(lane, position):  # 根据车辆当前状态更新车辆x,y坐标信息 VTD
     if position > lane.length:
         print('pos is larger than lane length!')
         if position < lane.length + 0.5:
@@ -895,14 +895,14 @@ def get_Refline(geometry):
             nextRline = geometry[Rline_index + 1]
             nextx = float(nextRline.getAttribute('x'))
             nexty = float(nextRline.getAttribute('y'))
-        if Rline.getElementsByTagName('line'):
-            while temp_Rlength + step_length < Rlength:
+        if Rline.getElementsByTagName('line'): # TODO 直线情况下，是否可以直接取到终点
+            while temp_Rlength + step_length < Rlength: # else 直接取终点
                 temp_Rclinex.append(temp_Rclinex[-1] + step_length * math.cos(Rheading))
                 temp_Rcliney.append(temp_Rcliney[-1] + step_length * math.sin(Rheading))
                 temp_Rlength += step_length
                 Rdirect.append(Rheading)
                 Radd_length.append(Radd_length[-1] + step_length)
-        elif Rline.getElementsByTagName('arc'):
+        elif Rline.getElementsByTagName('arc'): #恒定曲率的弧线
             close2nextp = 0
             arc = Rline.getElementsByTagName('arc')
             curvature = float(arc[0].getAttribute('curvature'))
@@ -912,15 +912,15 @@ def get_Refline(geometry):
                 #######
                 # 用于平滑弧线/螺旋线尾端的累积误差，用直线连接目标点
                 if Rline_index < len(geometry) - 1:
-                    dist2nextp = math.sqrt((temp_Rclinex[-1] - nextx) ** 2 + (temp_Rcliney[-1] - nexty) ** 2)
+                    dist2nextp = math.sqrt((temp_Rclinex[-1] - nextx) ** 2 + (temp_Rcliney[-1] - nexty) ** 2) # TODO 相当于直连了
                     # if dist2nextp < 0.2:
                     #     break
-                    if dist2nextp < 1.0:
-                        temp_heading = np.arctan2(nexty - temp_Rcliney[-1], nextx - temp_Rclinex[-1])
+                    if dist2nextp < 1.0: # 小于步长
+                        temp_heading = np.arctan2(nexty - temp_Rcliney[-1], nextx - temp_Rclinex[-1]) # TODO 这一步输入正切数组求角度
                         # if temp_heading < 0:
                         #     temp_heading += math.pi * 2
                         delta_alpha = 0
-                        if close2nextp == 0:
+                        if close2nextp == 0: #恒成立
                             Rlength = temp_Rlength + dist2nextp
                             close2nextp = 1
                 #######
@@ -929,8 +929,8 @@ def get_Refline(geometry):
                 temp_Rlength += step_length
                 Rdirect.append(temp_heading)
                 Radd_length.append(Radd_length[-1] + step_length)
-                temp_heading += delta_alpha
-        elif Rline.getElementsByTagName('spiral'):  # TODO:连接处做了平滑处理:是由于车道宽度导致的不平滑
+                temp_heading += delta_alpha #可以直接相加吗，delta_alpha = step_length * curvature，并不是微分
+        elif Rline.getElementsByTagName('spiral'):  # TODO:连接处做了平滑处理:是由于车道宽度导致的不平滑 螺旋线或回旋曲线
             close2nextp = 0
             spiral = Rline.getElementsByTagName('spiral')
             curvStart = float(spiral[0].getAttribute('curvStart'))
@@ -957,6 +957,16 @@ def get_Refline(geometry):
                 Radd_length.append(Radd_length[-1] + step_length)
                 temp_heading += delta_alpha
         elif Rline.getElementsByTagName('poly3'):
+            poly3 = Rline.getElementsByTagName('poly3')
+            a = float(poly3[0].getAttribute('a'))
+            b = float(poly3[0].getAttribute('b'))
+            c = float(poly3[0].getAttribute('c'))
+            d = float(poly3[0].getAttribute('d'))
+            sum_index = Rlength // step_length
+            start_x = Rstartx
+            start_y = Rstarty
+            for i in range(sum_index):
+                
             pass
         elif Rline.getElementsByTagName('paramPoly3'):
             pass
@@ -995,17 +1005,17 @@ def create_road(graph, xodr, ax):
             # new_link.in_link_lst.append(link_predecessor_id) #TODO:还未考虑多个上下游的情况：已考虑junction，找路口进行验证
         plan_view = road.getElementsByTagName('planView')
         geometry = plan_view[0].getElementsByTagName('geometry')
-        [Rclinex, Rcliney, Rdirect, Radd_length] = get_Refline(geometry)
+        [Rclinex, Rcliney, Rdirect, Radd_length] = get_Refline(geometry) # 获取参考线坐标点序列，这里也很重要，不需要导出吗，怎么输入
         elevationProfile = road.getElementsByTagName('elevationProfile') #TODO：暂时没有考虑高程
-        temp_lanes = road.getElementsByTagName('lanes')
-        laneSection = temp_lanes[0].getElementsByTagName('laneSection') #TODO：可能有多段section
+        temp_lanes = road.getElementsByTagName('lanes') # 车道信息 需要对其进行分段（laneSection），lanes 是否有多个
+        laneSection = temp_lanes[0].getElementsByTagName('laneSection') #TODO：可能有多段section，看起来只取了一段信息
         lanes = laneSection[0].getElementsByTagName('lane')
         lane_border_list = {}
         lane_width_list = {}
         for lane in lanes:
             new_lane = Lane()
             new_lane.id = int(lane.getAttribute('id')) #为了区分不同车道的情况
-            if new_lane.id >= 0:
+            if new_lane.id >= 0: #lane id 只是区分左右车道，为什么做这种转换
                 new_lane.link_id = new_link.id
             else:
                 new_lane.link_id = new_link0.id
@@ -1017,7 +1027,7 @@ def create_road(graph, xodr, ax):
             width = lane.getElementsByTagName('width')
             if not width:
                 continue #如果没有width这个标签说明为地面标线，不是车道
-            for k in range(0, len(width)):
+            for k in range(0, len(width)): # 同一车道会有多个width吗
                 a = float(width[k].getAttribute('a'))
                 b = float(width[k].getAttribute('b'))
                 c = float(width[k].getAttribute('c'))
@@ -1038,11 +1048,11 @@ def create_road(graph, xodr, ax):
                 lane_width_list[new_lane.id] = new_lane.width
                 continue
             lane_successor = lane.getElementsByTagName('successor')
-            if lane_successor:
+            if lane_successor: # 绑定车道关系？
                 lane_successor_id = int(lane_successor[0].getAttribute('id'))
                 try:
-                    link_successor_id0 = int(np.sign(lane_successor_id)) * link_successor_id
-                    suc_id = link_successor_id0 * 100 + lane_successor_id
+                    link_successor_id0 = int(np.sign(lane_successor_id)) * link_successor_id # 0
+                    suc_id = link_successor_id0 * 100 + lane_successor_id # 为什么
                     if suc_id in graph.lane_map.keys():
                         suc_lane = graph.get_lane(suc_id)
                     else:
@@ -1110,7 +1120,7 @@ def create_road(graph, xodr, ax):
             # if new_lane.type != 'driving':
             #     Rclinex1 = [x + w * math.cos(h + np.sign(new_lane.id) * math.pi / 2.0) for (x, h, w) in zip(Rclinex, Rdirect, lane_width_list[lane_id])]
             #     Rcliney1 = [y + w * math.sin(h + np.sign(new_lane.id) * math.pi / 2.0) for (y, h, w) in zip(Rcliney, Rdirect, lane_width_list[lane_id])]
-            if lane_id + 1 in lane_border_list.keys():
+            if lane_id + 1 in lane_border_list.keys(): #？？？
                 clinex = [x + (w1 + w2) * 0.5 * math.cos(h + np.sign(new_lane.id) * math.pi / 2.0) for (x, h, w1, w2) in zip(lane_border_list[lane_id+1].xy[0], Rdirect, lane_width_list[lane_id], lane_width_list[lane_id+1])] #应该先计算中间车道的坐标点，再计算外侧车道
                 cliney = [y + (w1 + w2) * 0.5 * math.sin(h + np.sign(new_lane.id) * math.pi / 2.0) for (y, h, w1, w2) in zip(lane_border_list[lane_id+1].xy[1], Rdirect, lane_width_list[lane_id], lane_width_list[lane_id+1])]
             else:
@@ -1118,7 +1128,7 @@ def create_road(graph, xodr, ax):
                 cliney = [y + w * 0.5 * math.sin(h + np.sign(new_lane.id) * math.pi / 2.0) for (y, h, w) in zip(Rcliney, Rdirect, lane_width_list[lane_id])]
             # new_lane.xy = [clinex[::-np.sign(new_lane.id)], cliney[::-np.sign(new_lane.id)]]  # 车道id为负的话，需要倒序xy坐标
             new_lane.xy = [clinex, cliney]
-            lane_border_list[new_lane.id] = new_lane
+            lane_border_list[new_lane.id] = new_lane # 此处已经生成了车道坐标序列
 
         for lane_id, new_lane in lane_border_list.items():
             [new_lane.direct, new_lane.add_length] = get_line_feature(new_lane.xy)
@@ -1161,7 +1171,7 @@ def create_road(graph, xodr, ax):
 
 
     junctions = root.getElementsByTagName('junction')
-    for junction in junctions:
+    for junction in junctions: #路口的坐标序列如何生成，是否可以通过车道连接关系TESS生成
         junction_id = int(junction.getAttribute('id'))
         connections = junction.getElementsByTagName('connection')
         for connection in connections:
@@ -1174,7 +1184,7 @@ def create_road(graph, xodr, ax):
                 if pre_id > 0:
                     incomingRoad = graph.link_map[incomingRoad_id]
                 else:
-                    incomingRoad = graph.link_map[-incomingRoad_id]
+                    incomingRoad = graph.link_map[-incomingRoad_id] #link_map为什么要生成负的id，还是同一个
                 for lane in incomingRoad.lane_lst:
                     if lane.id == pre_id:
                         new_id = connectingRoad_id * 100 + suc_id
@@ -1188,7 +1198,7 @@ def create_road(graph, xodr, ax):
                     if lane.id == suc_id:
                         new_id = incomingRoad_id * 100 + pre_id
                         if new_id not in lane.in_lane_id_lst:
-                            lane.in_lane_id_lst.append(incomingRoad_id * 100 + pre_id)
+                            lane.in_lane_id_lst.append(incomingRoad_id * 100 + pre_id) #？？
 
     graph.build_topo()
     # graph.load_cross_point('lane_cross')
@@ -1218,7 +1228,7 @@ def create_road(graph, xodr, ax):
     return graph
 
 # 根据车道中心线坐标计算行驶方向和线长度序列
-def get_lane_feature(xy):
+def get_lane_feature(xy): # 重复函数？
     xy = np.array(xy)
     # n为中心点个数，2为x,y坐标值
     x_prior = xy[0][:-1]
@@ -1245,7 +1255,7 @@ def read_csv(file_path):#从csv文件中读取数据
     for line in file_reader:
         yield line
 
-def detail_xy(xy): #将原车道中心线上少量的点加密为0.1m间隔的点
+def detail_xy(xy): #将原车道中心线上少量的点加密为0.1m间隔的点 # 不再使用？？
     [direct, add_length] = get_lane_feature(xy)
     dist_interval = 0.1
     new_xy = [[], []]
@@ -1265,7 +1275,7 @@ def detail_xy(xy): #将原车道中心线上少量的点加密为0.1m间隔的�
             new_direct.append(direct[k])
     return [new_xy, new_direct, new_add_len]
 
-def worldxy2_lanepos(world_x, world_y, current_link, flag, last_pos, last_lane):  # 根据车道以及距离中心线起点长度，计算该点的二维坐标和方向角
+def worldxy2_lanepos(world_x, world_y, current_link, flag, last_pos, last_lane):  # 根据车道以及距离中心线起点长度，计算该点的二维坐标和方向角  # 不再使用？？
     search_r = 5
     min_dist = 1
     rest_len = last_lane.length - last_pos
