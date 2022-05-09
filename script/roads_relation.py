@@ -33,7 +33,7 @@ for road in links:
     if len(xy_list) > 1:
         print(xy_list)
 
-print(roads)
+# 绘制参考线
 for road_id, road_data in roads.items():
     road_xy_list = road_data['xy']
     for xy in road_xy_list:

@@ -31,6 +31,15 @@ with open(xodr_file, "r") as file_in:
 # 在 junction 里面也会有 lane_name
 scenario = convert_opendrive(opendrive)
 
+# 输出为 xml文件 commroad格式, 需要更改 commonroad-io 版本
+# from opendrive2lanelet.io.extended_file_writer import ExtendedCommonRoadFileWriter
+# with open(path, "w") as fh:
+#     writer = ExtendedCommonRoadFileWriter(
+#         scenario,
+#         source="OpenDRIVE 2 Lanelet Converter",
+#     )
+#     writer.write_scenario_to_file_io(fh)
+
 # 获取 link与交叉口关系
 road_junction = {}
 for road in opendrive.roads:
