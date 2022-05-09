@@ -12,10 +12,10 @@ from opendrive2lanelet.opendriveparser.parser import parse_opendrive
 def convert_opendrive(opendrive: OpenDrive) -> Scenario:
     road_network = Network()
     road_network.load_opendrive(opendrive)
-    return road_network.export_commonroad_scenario() #commonroad-io==2022.1
+    return road_network.export_commonroad_scenario() #commonroad-io==2022.1 版本需要验证
 
 
-xodr_file = "../test1.xodr"
+xodr_file = "../test2.xodr"
 # output_name = "test1.xml"
 
 with open(xodr_file, "r") as file_in:
@@ -34,7 +34,7 @@ scenario = convert_opendrive(opendrive)
 # 获取 link与交叉口关系
 road_junction = {}
 for road in opendrive.roads:
-    road_junction[road.id] = road.junction and road.junction.id
+    road_junction[road.id] = road.junction and road.junction.id # 此道路是在交叉口内部
 print([k for k,v in road_junction.items() if v])
 
 # 获取道路与路段关系
@@ -67,6 +67,7 @@ for lane in scenario.lanelet_network.lanelets:
     print(road_id)
 
     for coo in lane.center_vertices:
+        # 绘制中心线
         x_list.append(coo[0])
         y_list.append(coo[1])
         lanes[lane.lanelet_id].append(list(coo))
@@ -77,12 +78,14 @@ for lane in scenario.lanelet_network.lanelets:
     predecessor_ids = lane.predecessor
     successor_ids = lane.successor
     if road_junction.get(road_id): # TODO 区分是否在 junction中, 同时 正常车道也有前后
-        plt.plot(x_list, y_list, color="b", linestyle="", marker=".", linewidth=0)
+        color = 'r'
         for successor_id in successor_ids:
             for predecessor_id in predecessor_ids:
                 writer2.writerow(['', lane_road_map[successor_id], successor_id, lane_road_map[predecessor_id], predecessor_id, center_string, left_string, right_string])
     else:
-        plt.plot(x_list, y_list, color="y", linestyle="", marker=".", linewidth=0)
+        color = 'y'
         writer1.writerow([road_id, lane_name, lane.lanelet_id, '', center_string, left_string, right_string])
+    plt.plot(x_list, y_list, color="g", linestyle="", marker=".", linewidth=1)
+
 plt.show()
 
