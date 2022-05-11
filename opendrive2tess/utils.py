@@ -5,21 +5,16 @@ from matlab import *
 import matplotlib.pyplot as plt
 
 
-def Coordinate_rotation(X,Y,theta): #%X、Y是局部坐标值，theta对应于hdg角度,x、y全局坐标值。
+def Coordinate_rotation(X, Y, theta): #%X、Y是局部坐标值，theta对应于hdg角度,x、y全局坐标值。
     x=X*cos(theta)-Y*sin(theta)
     y=X*sin(theta)+Y*cos(theta)
     return x, y
 
 
 def get_Refline(geometry, step_length):
-    geometry_lines = dict()
-    # geometry_id = 0
-    # Rclinex = []
-    # Rcliney = []
-    # Rdirect = []
-    # Radd_length = []
     init_xy = []
     road_length = 0
+    # 参考线可能由多段曲线拼接而成
     for Rline in geometry:
         s=float(Rline.getAttribute('s'))
         x=float(Rline.getAttribute('x'))
@@ -30,24 +25,6 @@ def get_Refline(geometry, step_length):
 
         road_length += length
 
-        # temp_Rclinex = []
-        # temp_Rcliney = []
-        # temp_Rlength = 0
-        # Rstartx = float(Rline.getAttribute('x'))
-        # Rstarty = float(Rline.getAttribute('y'))
-        # Rheading = float(Rline.getAttribute('hdg'))
-        # Rlength = float(Rline.getAttribute('length'))
-        # if Rlength < 1e-3:
-        #     continue
-        # temp_Rclinex.append(Rstartx)
-        # temp_Rcliney.append(Rstarty)
-        # Rdirect.append(Rheading)
-        # Radd_length.append(float(Rline.getAttribute('s')))
-        # Rline_index = geometry.index(Rline)
-        # if Rline_index < len(geometry) - 1:
-        #     nextRline = geometry[Rline_index + 1]
-        #     nextx = float(nextRline.getAttribute('x'))
-        #     nexty = float(nextRline.getAttribute('y'))
         if Rline.getElementsByTagName('line'):  # TODO 直线情况下，是否可以直接取到终点
             from sympy import cos, sin
             # 多段切割
@@ -72,12 +49,13 @@ def get_Refline(geometry, step_length):
             curvature = float(arc.getAttribute("curvature"))
 
             r = 1 / curvature  # 暂时不取绝对值
-            xc = x - r * sin(hdg)  # TODO 圆心坐标（这种求法是否正确，可参照下方求点位的方法）
+            xc = x - r * sin(hdg)
             yc = y + r * cos(hdg)
             print(xc, yc)  # 圆心
             theta = length / r  # 转动角度
 
-            if curvature > 0:  # 逆时针旋转
+            # 逆时针旋转(不用合并，方便理解)
+            if curvature > 0:
                 if -pi <= hdg < -pi / 2:  # 第三象限(-1/-0.5, 0.5/1)
                     angle_start = hdg + 1.5 * pi
                 elif -pi / 2 <= hdg < 0:  # 第四象限(-0.5/0, -1/-0.5)
@@ -86,7 +64,8 @@ def get_Refline(geometry, step_length):
                     angle_start = hdg - 0.5 * pi
                 else:  # 第二象限(0.5/1, 0/0.5)
                     angle_start = hdg - 0.5 * pi
-            else:  # 顺时针旋转
+            # 顺时针旋转
+            else:
                 if -pi <= hdg < -pi / 2:  # 第三象限(-1/-0.5, -0.5/0)
                     angle_start = hdg + 0.5 * pi
                 elif -pi / 2 <= hdg < 0:  # 第四象限(-0.5/0, 0/0.5)
@@ -98,7 +77,7 @@ def get_Refline(geometry, step_length):
 
             angle_start = float(angle_start)
             angle_end = float(angle_start + theta)  # TODO 需要考虑转多圈，累加法
-            print(angle_start, angle_end)
+            # print(angle_start, angle_end)
             # from matlab import zeros, linspace
             t = linspace(angle_start, angle_end, steps)
             x_list = xc + abs(r) * cos(t) # t = list
@@ -106,7 +85,7 @@ def get_Refline(geometry, step_length):
             plt.plot(x_list, y_list)
             plt.show()
             xy = list(zip(x_list, y_list))
-            print(xy)
+            # print(xy)
 
         elif Rline.getElementsByTagName('spiral'): # 螺旋线
             from sympy import Symbol, integrate, sqrt, cos, pi, sin
@@ -157,11 +136,11 @@ def get_Refline(geometry, step_length):
 
             plt.plot([i[0] for i in xy], [i[1] for i in xy], color="r", linestyle="", marker=".")
             plt.show()
-            print(xy)
+            # print(xy)
 
         elif Rline.getElementsByTagName('poly3'): #TODO 已放弃
             xy = []
-            print(xy)
+            # print(xy)
         elif Rline.getElementsByTagName('paramPoly3'):
             paramPoly3 = Rline.getElementsByTagName('paramPoly3')[0]  # 一个geometry只有一条参考线
             aU = float(paramPoly3.getAttribute('aU'))
