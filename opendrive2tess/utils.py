@@ -38,10 +38,6 @@ def get_Refline(geometry, step_length):
             # xy[0] = [x, y]
             # xy[1] = [x + length * cos(hdg), y + length * sin(hdg)]
 
-            plt.plot([i[0] for i in xy], [i[1] for i in xy], color="r", linestyle="", marker=".")
-            plt.show()
-            print(xy)
-
         elif Rline.getElementsByTagName('arc'):  # 恒定曲率的弧线
             from matlab import sqrt, cos, pi, sin
             arc = Rline.getElementsByTagName('arc')[0]
@@ -76,14 +72,12 @@ def get_Refline(geometry, step_length):
                     angle_start = hdg - 1.5 * pi
 
             angle_start = float(angle_start)
-            angle_end = float(angle_start + theta)  # TODO 需要考虑转多圈，累加法
+            angle_end = float(angle_start + theta)  # 转多圈也有效，但是必须要高度信息才能保证空间上不重叠
             # print(angle_start, angle_end)
             # from matlab import zeros, linspace
             t = linspace(angle_start, angle_end, steps)
             x_list = xc + abs(r) * cos(t) # t = list
             y_list = yc + abs(r) * sin(t)
-            plt.plot(x_list, y_list)
-            plt.show()
             xy = list(zip(x_list, y_list))
             # print(xy)
 
@@ -134,10 +128,6 @@ def get_Refline(geometry, step_length):
                 xy[i][0] = X
                 xy[i][1] = Y
 
-            plt.plot([i[0] for i in xy], [i[1] for i in xy], color="r", linestyle="", marker=".")
-            plt.show()
-            # print(xy)
-
         elif Rline.getElementsByTagName('poly3'): #TODO 已放弃
             raise Exception("Unknown Geometry <poly3> !!!")
 
@@ -172,11 +162,8 @@ def get_Refline(geometry, step_length):
                 xy[index][0] = X
                 xy[index][1] = Y
                 index += 1
-            plt.plot([i[0] for i in xy], [i[1] for i in xy], color="r", linestyle="", marker=".")
-            plt.show()
-            print(xy)
         else:
             raise Exception("Unknown Geometry !!!")
-        init_xy.append(list(xy))
+        init_xy += [[i[0], i[1]] for i in xy]
 
     return road_length, init_xy
