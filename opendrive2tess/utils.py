@@ -87,7 +87,7 @@ def get_Refline(geometry, step_length):
             xy = list(zip(x_list, y_list))
             # print(xy)
 
-        elif Rline.getElementsByTagName('spiral'): # 螺旋线
+        elif Rline.getElementsByTagName('spiral'):  # 螺旋线
             from sympy import Symbol, integrate, sqrt, cos, pi, sin
 
             spiral = Rline.getElementsByTagName('spiral')[0]
@@ -139,8 +139,8 @@ def get_Refline(geometry, step_length):
             # print(xy)
 
         elif Rline.getElementsByTagName('poly3'): #TODO 已放弃
-            xy = []
-            # print(xy)
+            raise Exception("Unknown Geometry <poly3> !!!")
+
         elif Rline.getElementsByTagName('paramPoly3'):
             paramPoly3 = Rline.getElementsByTagName('paramPoly3')[0]  # 一个geometry只有一条参考线
             aU = float(paramPoly3.getAttribute('aU'))
@@ -177,6 +177,6 @@ def get_Refline(geometry, step_length):
             print(xy)
         else:
             raise Exception("Unknown Geometry !!!")
-        init_xy.append(xy)
+        init_xy.append(list(xy))
 
     return road_length, init_xy

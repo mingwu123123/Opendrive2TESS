@@ -2,13 +2,15 @@ from xml.dom.minidom import parse
 from opendrive2tess.utils import get_Refline
 
 import matplotlib.pyplot as plt
+import csv
+from functools import reduce
 
 
-def get_roads_line(xodr):
+def get_roads_info(xodr):
     root = xodr.documentElement
     links = root.getElementsByTagName('road')
 
-    roads = {}
+    roads_info = dict()
     for road in links:
         # 多条路段
         road_id = int(road.getAttribute('id'))
@@ -23,32 +25,50 @@ def get_roads_line(xodr):
         geometry = plan_view.getElementsByTagName('geometry')
         # 获取参考线坐标式, 一般为多段线
         road_length, xy_list = get_Refline(geometry, 1)
-        roads[road_id] = {
+
+        center_vertices = reduce(lambda i, j: i + j, xy_list)
+        roads_info[road_id] = {
             "junction_id": junction_id,  # -1 为非junction，此道路是在交叉口内部
-            'xy': xy_list,
+            'center_vertices': center_vertices,
             'length': road_length,
             # 高程/超高程信息暫未獲取
-        } # 参考线信息
-        for xy in xy_list:
-            plt.plot([i[0] for i in xy], [i[1] for i in xy], color="r", linestyle="", marker=".")
+        }
+
+        plt.plot([i[0] for i in center_vertices], [i[1] for i in center_vertices], color="r", linestyle="", marker=".")
         plt.show()
 
         if len(xy_list) > 1:
             print("此路段参考线由多条曲线组成")
-    return roads
+    return roads_info
+
+
+def show_roads(f1, f2, roads_info):
+    writer1 = csv.writer(f1)
+    writer1.writerow(["路段ID", "路段名称", "長度(m)", "中心点序列", "左侧折点序列", "右侧折点序列"])
+
+    writer2 = csv.writer(f2)
+    writer2.writerow(["连接段ID", "長度(m)", "中心点序列", "左侧折点序列", "右侧折点序列"])
+
+    for road_id, road_data in roads_info.items():
+        xy = road_data['center_vertices']
+
+        if road_data['junction_id'] == -1:
+            color = 'g'
+            writer1.writerow([road_id, '', road_data['length'], road_data['center_vertices'], '', ''])
+        else:
+            color = 'r'
+            writer1.writerow([road_id, road_data['length'], road_data['center_vertices'], '', ''])
+        plt.plot([i[0] for i in xy], [i[1] for i in xy], color=color, linestyle="", marker=".")
+    plt.show()
+
 
 if __name__ == '__main__':
-    xodr_file = "../test2.xodr"
+    xodr_file = "../test1.xodr"
     xodr = parse(xodr_file)
 
-    roads = get_roads_line(xodr)
-    # 绘制参考线
-    for road_id, road_data in roads.items():
-        road_xy_list = road_data['xy']
-        for xy in road_xy_list:
-            if road_data['junction_id'] == -1:
-                color = 'g'
-            else:
-                color = 'r'
-            plt.plot([i[0] for i in xy], [i[1] for i in xy], color=color, linestyle="", marker=".")
-    plt.show()
+    roads_info = get_roads_info(xodr)
+    # 绘制参考线&寫入文件
+    f1 = open("路段.csv", 'w', newline='')
+    f2 = open("连接段.csv", 'w', newline='')
+    show_roads(f1, f2, roads_info)
+
