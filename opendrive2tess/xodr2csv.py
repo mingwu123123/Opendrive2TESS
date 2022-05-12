@@ -24,17 +24,43 @@ def get_basic_info(opendrive, scenario):
     # print([k for k,v in road_junction.items() if v])
 
     # 获取道路与路段关系
-    lane_road_map = {}
+    lanes_info = defaultdict(dict)
     for lane in scenario.lanelet_network.lanelets:
         # 获取所在路段
         lane_name = lane.lane_name
         road_id = int(lane_name.split('.')[0])
-        lane_road_map[lane.lanelet_id] = road_id
+        lanes_info[lane.lanelet_id] = {
+            "road_id": road_id,
+            "left": {
+                "lane_id": lane.adj_left,
+                "same_direction": lane.adj_left_same_direction,
+            },
+            "right": {
+                "lane_id": lane.adj_right,
+                "same_direction": lane.adj_right_same_direction,
+            },
+            "predecessor_ids": lane.predecessor,
+            "successor_ids": lane.successor,
+            "type": lane.type,
+            "name": lane.lane_name,
+            "center_vertices": lane.center_vertices,
+            "left_vertices": lane.left_vertices,
+            "right_vertices": lane.right_vertices,
+        }
     # print(lane_road_map)
-    return lane_road_map, road_junction
+    return lanes_info, road_junction
 
 
-def get_lanes(f1, f2, scenario):
+def get_color():
+    color_list = ['y', 'b', 'g', 'r']
+    i = 0
+    while True:
+        yield color_list[i % len(color_list)]
+        i += 1
+
+color_c = get_color()
+
+def show_lanes(f1, f2, scenario, lanes_info, road_junction):
     # 写入文件
     writer1 = csv.writer(f1)
     writer1.writerow(["路段ID", "路段名称", "车道ID", "宽度(m)", "中心点序列", "左侧折点序列", "右侧折点序列"])
@@ -42,26 +68,17 @@ def get_lanes(f1, f2, scenario):
     writer2 = csv.writer(f2)
     writer2.writerow(["连接段ID", "起始路段ID", "起始车道ID", "目标路段ID", "目标车道ID", "中心点序列", "左侧折点序列", "右侧折点序列"])
 
-    lanes = defaultdict(list)
     for lane in scenario.lanelet_network.lanelets:
         x_list = []
         y_list = []
         # 获取所在路段
-        # TODO 需要重写 Network.export_lanelet_network 方法
-        # lanelet = parametric_lane.to_lanelet()
-        # # 在这里添加 lanelet 的 原始信息
-        # lanelet.lane_name = parametric_lane.id_
-        # lanelet.type = parametric_lane.type
-        lane_type = lane.type  # 道路类型
-        lane_name = lane.lane_name
-        # TODO 如果需要绘制路段坐标详情，需要保留道路的左右测关系
-        road_id = lane_road_map[lane.lanelet_id]
+        road_id = lanes_info[lane.lanelet_id]['road_id']
+        lane_name = lanes_info[lane.lanelet_id]['name']
 
         for coo in lane.center_vertices:
             # 绘制中心线
             x_list.append(coo[0])
             y_list.append(coo[1])
-            lanes[lane.lanelet_id].append(list(coo))
 
         center_string = ' '.join(["({} {}) ".format(coo[0], coo[1]) for coo in lane.center_vertices])
         left_string = ' '.join(["({} {}) ".format(coo[0], coo[1]) for coo in lane.left_vertices])
@@ -69,23 +86,23 @@ def get_lanes(f1, f2, scenario):
         predecessor_ids = lane.predecessor
         successor_ids = lane.successor
         if road_junction.get(road_id):  # 区分此路段是否属于 junction, 同时 正常车道也有前后
-            color = 'r'
+            color = next(color_c)
             for successor_id in successor_ids:
                 for predecessor_id in predecessor_ids:
                     writer2.writerow(
-                        ['', lane_road_map[successor_id], successor_id, lane_road_map[predecessor_id], predecessor_id,
+                        [road_id, lanes_info[successor_id]['road_id'], successor_id, lanes_info[predecessor_id]['road_id'], predecessor_id,
                          center_string, left_string, right_string])
         else:
-            color = 'y'
+            color = next(color_c)
             writer1.writerow([road_id, lane_name, lane.lanelet_id, '', center_string, left_string, right_string])
         plt.plot(x_list, y_list, color=color, linestyle="", marker=".", linewidth=1)
-
+    f1.close()
+    f2.close()
     plt.show()
-    return lanes
 
 
 if __name__ == "__main__":
-    xodr_file = "../test2.xodr"
+    xodr_file = "../test1.xodr"
 
     with open(xodr_file, "r") as file_in:
         obj = etree.parse(file_in).getroot()
@@ -94,13 +111,13 @@ if __name__ == "__main__":
     scenario = convert_opendrive(opendrive)  # 这一步删除了过多的历史信息，需要手动更改源码
 
     # 提取基础信息
-    lane_road_map, road_junction = get_basic_info(opendrive, scenario)
+    lanes_info, road_junction = get_basic_info(opendrive, scenario)
 
     f1 = open("车道.csv", 'w', newline='')
     f2 = open("车道连接.csv", 'w', newline='')
 
     # 获取道路详情并写入文件
-    lanes_info = get_lanes(f1, f2, scenario)
+    show_lanes(f1, f2, scenario, lanes_info, road_junction)
 
     # 输出为 xml文件 commroad格式, 需要更改 commonroad-io 版本
     # path = "test1.xml"
