@@ -103,7 +103,7 @@ def show_lanes(f1, f2, scenario, lanes_info, road_junction):
 
 
 if __name__ == "__main__":
-    xodr_file = "hdmap1.4_foshan_20220111.xodr"
+    xodr_file = "test.xodr"
 
     with open(xodr_file, "r") as file_in:
         obj = etree.parse(file_in).getroot()
