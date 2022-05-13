@@ -85,16 +85,17 @@ def show_lanes(f1, f2, scenario, lanes_info, road_junction):
         right_string = ' '.join(["({} {}) ".format(coo[0], coo[1]) for coo in lane.right_vertices])
         predecessor_ids = lane.predecessor
         successor_ids = lane.successor
-        if road_junction.get(road_id):  # 区分此路段是否属于 junction, 同时 正常车道也有前后
+        if road_junction.get(road_id) is None:  # 区分此路段是否属于 junction, 同时 正常车道也有前后
+            color = next(color_c)
+            writer1.writerow([road_id, lane_name, lane.lanelet_id, '', center_string, left_string, right_string])
+        else:
             color = next(color_c)
             for successor_id in successor_ids:
                 for predecessor_id in predecessor_ids:
                     writer2.writerow(
-                        [road_id, lanes_info[successor_id]['road_id'], successor_id, lanes_info[predecessor_id]['road_id'], predecessor_id,
+                        [road_id, lanes_info[successor_id]['road_id'], successor_id,
+                         lanes_info[predecessor_id]['road_id'], predecessor_id,
                          center_string, left_string, right_string])
-        else:
-            color = next(color_c)
-            writer1.writerow([road_id, lane_name, lane.lanelet_id, '', center_string, left_string, right_string])
         plt.plot(x_list, y_list, color=color, linestyle="", marker=".", linewidth=1)
     f1.close()
     f2.close()
@@ -102,7 +103,7 @@ def show_lanes(f1, f2, scenario, lanes_info, road_junction):
 
 
 if __name__ == "__main__":
-    xodr_file = "../test1.xodr"
+    xodr_file = "test.xodr"
 
     with open(xodr_file, "r") as file_in:
         obj = etree.parse(file_in).getroot()

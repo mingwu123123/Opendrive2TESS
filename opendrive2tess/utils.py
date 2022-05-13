@@ -10,12 +10,21 @@ def Coordinate_rotation(X, Y, theta): #%X、Y是局部坐标值，theta对应于
     y=X*sin(theta)+Y*cos(theta)
     return x, y
 
+def get_color():
+    color_list = ['y', 'b', 'g', 'r']
+    i = 0
+    while True:
+        yield color_list[i % len(color_list)]
+        i += 1
 
-def get_Refline(geometry, step_length):
+color_c = get_color()
+
+def get_Refline(geometrys, step_length):
     init_xy = []
     road_length = 0
+    sum_xy = []
     # 参考线可能由多段曲线拼接而成
-    for Rline in geometry:
+    for Rline in geometrys:
         s=float(Rline.getAttribute('s'))
         x=float(Rline.getAttribute('x'))
         y=float(Rline.getAttribute('y'))
@@ -38,10 +47,6 @@ def get_Refline(geometry, step_length):
             # xy[0] = [x, y]
             # xy[1] = [x + length * cos(hdg), y + length * sin(hdg)]
 
-            plt.plot([i[0] for i in xy], [i[1] for i in xy], color="r", linestyle="", marker=".")
-            plt.show()
-            print(xy)
-
         elif Rline.getElementsByTagName('arc'):  # 恒定曲率的弧线
             from matlab import sqrt, cos, pi, sin
             arc = Rline.getElementsByTagName('arc')[0]
@@ -51,7 +56,7 @@ def get_Refline(geometry, step_length):
             r = 1 / curvature  # 暂时不取绝对值
             xc = x - r * sin(hdg)
             yc = y + r * cos(hdg)
-            print(xc, yc)  # 圆心
+            # print(xc, yc)  # 圆心
             theta = length / r  # 转动角度
 
             # 逆时针旋转(不用合并，方便理解)
@@ -76,67 +81,106 @@ def get_Refline(geometry, step_length):
                     angle_start = hdg - 1.5 * pi
 
             angle_start = float(angle_start)
-            angle_end = float(angle_start + theta)  # TODO 需要考虑转多圈，累加法
+            angle_end = float(angle_start + theta)  # 转多圈也有效，但是必须要高度信息才能保证空间上不重叠
             # print(angle_start, angle_end)
             # from matlab import zeros, linspace
             t = linspace(angle_start, angle_end, steps)
             x_list = xc + abs(r) * cos(t) # t = list
             y_list = yc + abs(r) * sin(t)
-            plt.plot(x_list, y_list)
-            plt.show()
             xy = list(zip(x_list, y_list))
-            # print(xy)
 
         elif Rline.getElementsByTagName('spiral'):  # 螺旋线
             from sympy import Symbol, integrate, sqrt, cos, pi, sin
-
             spiral = Rline.getElementsByTagName('spiral')[0]
             curvStart = float(spiral.getAttribute("curvStart"))
             curvEnd = float(spiral.getAttribute("curvEnd"))
+            if abs(curvStart) > abs(curvEnd):
+                # # 转化成初始曲率为0，角度为0，从原点开始计算
+                len_init = length * (curvEnd / (curvEnd - curvStart))
+                hdg_start = float(length * curvStart / 2)  # 算角度
+                hdg_end = float(len_init * curvEnd / 2)
 
-            # TODO 曲率不是角度，要积分角度，角度可根据弧长和曲率算出
-            len_init = length * (curvStart / (curvEnd - curvStart))  # 转化成初始曲率为0，从原点开始计算
-            hdg_start = float(len_init * curvStart / 2)  # 算角度
-            hdg_end = float(length * curvEnd / 2)
+                ls = linspace(hdg_start, hdg_end, steps)
+                len_ls = len(ls)
 
-            ls = linspace(hdg_start, hdg_end, steps)
-            len_ls = len(ls)
+                # from matlab import integral
+                t = Symbol("t")
+                c1 = (1 / sqrt(2 * pi)) * (cos(t) / sqrt(t))
+                s1 = (1 / sqrt(2 * pi)) * (sin(t) / sqrt(t))
+                xy = zeros((len_ls, 2))
+                ccc = sqrt(pi * length / abs(curvStart))  # 半径R = 1/曲率
 
-            # from matlab import integral
-            t = Symbol("t")
-            c1 = (1 / sqrt(2 * pi)) * (cos(t) / sqrt(t))
-            s1 = (1 / sqrt(2 * pi)) * (sin(t) / sqrt(t))
-            xy = zeros((len_ls, 2))
-            ccc = sqrt(pi * length / abs(curvEnd))  # 半径R = 1/曲率
+                # 计算初始曲率为0，斜率为0，起点为原点时的欧拉螺线 与 现有螺线的对应关系
+                x_start = -abs(ccc * integrate(c1, (t, 0, ls[-1])))
+                y_start = ccc * integrate(s1, (t, 0, ls[-1]))
+                x_move = x - x_start
+                y_move = y - y_start
+                hdg_rotation = hdg - hdg_end # 旋轉角度在终点，旋转中心在原点
 
-            # 计算初始曲率为0，起点为原点时的欧拉螺线 与 现有螺线的对应关系
-            x_start = ccc * integrate(c1, (t, 0, ls[0]))
-            y_start = ccc * integrate(s1, (t, 0, ls[0]))
-            x_move = x - x_start
-            y_move = y - y_start
-            hdg_rotation = hdg - hdg_start
-            def Coordinate_move_rotation(X, Y):
-                # 1. 平移至初始位置 2.围绕初始点进行旋转
-                X = X + x_move
-                Y = Y + y_move
-                # 旋转(hdg_rotation >0, 逆时针旋转， hdg_rotation <0, 顺时针旋转),旋转中心为起点xy
-                nrx = (X - x) * cos(hdg_rotation) - (Y - y) * sin(hdg_rotation) + x
-                nry = (X - x) * sin(hdg_rotation) + (Y - y) * cos(hdg_rotation) + y
-                return nrx, nry
+                def Coordinate_move_rotation(X, Y):
+                    # 1. 平移至初始位置 2.围绕初始点进行旋转
+                    X = X + x_move
+                    Y = Y + y_move
+                    # 旋转(hdg_rotation >0, 逆时针旋转， hdg_rotation <0, 顺时针旋转),旋转中心为起点xy
+                    nrx = (X - x) * cos(hdg_rotation) - (Y - y) * sin(hdg_rotation) + x
+                    nry = (X - x) * sin(hdg_rotation) + (Y - y) * cos(hdg_rotation) + y
+                    return nrx, nry
 
-            for i in range(0, len_ls):
-                C_ls = integrate(c1, (t, 0, ls[i]))
-                S_ls = integrate(s1, (t, 0, ls[i]))
-                X = ccc * C_ls
-                Y = ccc * S_ls
+                for i in range(0, len_ls):
+                    C_ls = abs(integrate(c1, (t, 0, ls[i])))
+                    S_ls = integrate(s1, (t, 0, ls[i]))
+                    X = ccc * C_ls
+                    Y = ccc * S_ls
 
-                X, Y = Coordinate_move_rotation(X, Y)
-                xy[i][0] = X
-                xy[i][1] = Y
+                    X, Y = Coordinate_move_rotation(X, Y)
+                    xy[len_ls-i-1][0] = X
+                    xy[len_ls-i-1][1] = Y
 
-            plt.plot([i[0] for i in xy], [i[1] for i in xy], color="r", linestyle="", marker=".")
-            plt.show()
-            # print(xy)
+                # plt.plot([i[0] for i in xy], [i[1] for i in xy], color=next(color_c), linestyle="", marker=".")
+                # plt.show()
+            else:
+                # TODO 曲率不是角度，要积分角度，角度可根据弧长和曲率算出
+                len_init = length * (curvStart / (curvEnd - curvStart))  # 转化成初始曲率为0，从原点开始计算
+                hdg_start = float(len_init * curvStart / 2)  # 算角度
+                hdg_end = float(length * curvEnd / 2)
+
+                ls = linspace(hdg_start, hdg_end, steps)
+                len_ls = len(ls)
+
+                # from matlab import integral
+                t = Symbol("t")
+                c1 = (1 / sqrt(2 * pi)) * (cos(t) / sqrt(t))
+                s1 = (1 / sqrt(2 * pi)) * (sin(t) / sqrt(t))
+                xy = zeros((len_ls, 2))
+                ccc = sqrt(pi * length / abs(curvEnd))  # 半径R = 1/曲率
+
+                # 计算初始曲率为0，斜率为0，起点为原点时的欧拉螺线 与 现有螺线的对应关系
+                x_start = abs(ccc * integrate(c1, (t, 0, ls[0])))
+                y_start = ccc * integrate(s1, (t, 0, ls[0]))
+                x_move = x - x_start
+                y_move = y - y_start
+                hdg_rotation = hdg - hdg_start
+                def Coordinate_move_rotation(X, Y):
+                    # 1. 平移至初始位置 2.围绕初始点进行旋转
+                    X = X + x_move
+                    Y = Y + y_move
+                    # 旋转(hdg_rotation >0, 逆时针旋转， hdg_rotation <0, 顺时针旋转),旋转中心为起点xy
+                    nrx = (X - x) * cos(hdg_rotation) - (Y - y) * sin(hdg_rotation) + x
+                    nry = (X - x) * sin(hdg_rotation) + (Y - y) * cos(hdg_rotation) + y
+                    return nrx, nry
+
+                for i in range(0, len_ls):
+                    C_ls = abs(integrate(c1, (t, 0, ls[i])))
+                    S_ls = integrate(s1, (t, 0, ls[i]))
+                    X = ccc * C_ls
+                    Y = ccc * S_ls
+
+                    X, Y = Coordinate_move_rotation(X, Y)
+                    xy[i][0] = X
+                    xy[i][1] = Y
+
+                # plt.plot([i[0] for i in xy], [i[1] for i in xy], color=next(color_c), linestyle="", marker=".")
+                # plt.show()
 
         elif Rline.getElementsByTagName('poly3'): #TODO 已放弃
             raise Exception("Unknown Geometry <poly3> !!!")
@@ -172,11 +216,14 @@ def get_Refline(geometry, step_length):
                 xy[index][0] = X
                 xy[index][1] = Y
                 index += 1
-            plt.plot([i[0] for i in xy], [i[1] for i in xy], color="r", linestyle="", marker=".")
-            plt.show()
-            print(xy)
         else:
             raise Exception("Unknown Geometry !!!")
-        init_xy.append(list(xy))
+        # plt.plot([i[0] for i in xy], [i[1] for i in xy], color=next(color_c), linestyle="", marker=".")
+
+        init_xy += [[i[0], i[1]] for i in xy]
+        sum_xy.append(xy)
+        # for cc in sum_xy:
+        #     plt.plot([i[0] for i in cc], [i[1] for i in cc], color=next(color_c), linestyle="", marker=".")
+        # plt.show()
 
     return road_length, init_xy
