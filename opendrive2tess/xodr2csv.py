@@ -9,6 +9,8 @@ import csv
 
 from opendrive2lanelet.opendriveparser.parser import parse_opendrive
 
+from opendrive2tess.utils import color_c
+
 
 def convert_opendrive(opendrive: OpenDrive) -> Scenario:
     road_network = Network()
@@ -50,15 +52,6 @@ def get_basic_info(opendrive, scenario):
     # print(lane_road_map)
     return lanes_info, road_junction
 
-
-def get_color():
-    color_list = ['y', 'b', 'g', 'r']
-    i = 0
-    while True:
-        yield color_list[i % len(color_list)]
-        i += 1
-
-color_c = get_color()
 
 def show_lanes(f1, f2, scenario, lanes_info, road_junction):
     # 写入文件

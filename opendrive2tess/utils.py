@@ -1,14 +1,9 @@
-from math import sin
-
-from cmath import cos, pi
-from matlab import *
 import matplotlib.pyplot as plt
 
+from math import sin
+from cmath import cos, pi
+from matlab import *
 
-def Coordinate_rotation(X, Y, theta): #%X、Y是局部坐标值，theta对应于hdg角度,x、y全局坐标值。
-    x=X*cos(theta)-Y*sin(theta)
-    y=X*sin(theta)+Y*cos(theta)
-    return x, y
 
 def get_color():
     color_list = ['y', 'b', 'g', 'r']
@@ -17,7 +12,15 @@ def get_color():
         yield color_list[i % len(color_list)]
         i += 1
 
+
 color_c = get_color()
+
+
+def Coordinate_rotation(X, Y, theta):  # %X、Y是局部坐标值，theta对应于hdg角度,x、y全局坐标值。
+    x = X * cos(theta) - Y * sin(theta)
+    y = X * sin(theta) + Y * cos(theta)
+    return x, y
+
 
 def get_Refline(geometrys, step_length):
     init_xy = []
@@ -25,11 +28,11 @@ def get_Refline(geometrys, step_length):
     sum_xy = []
     # 参考线可能由多段曲线拼接而成
     for Rline in geometrys:
-        s=float(Rline.getAttribute('s'))
-        x=float(Rline.getAttribute('x'))
-        y=float(Rline.getAttribute('y'))
-        hdg=float(Rline.getAttribute('hdg'))
-        length=float(Rline.getAttribute('length'))
+        s = float(Rline.getAttribute('s'))
+        x = float(Rline.getAttribute('x'))
+        y = float(Rline.getAttribute('y'))
+        hdg = float(Rline.getAttribute('hdg'))
+        length = float(Rline.getAttribute('length'))
         steps = int(length // step_length + 1)
 
         road_length += length
@@ -85,7 +88,7 @@ def get_Refline(geometrys, step_length):
             # print(angle_start, angle_end)
             # from matlab import zeros, linspace
             t = linspace(angle_start, angle_end, steps)
-            x_list = xc + abs(r) * cos(t) # t = list
+            x_list = xc + abs(r) * cos(t)  # t = list
             y_list = yc + abs(r) * sin(t)
             xy = list(zip(x_list, y_list))
 
@@ -115,7 +118,7 @@ def get_Refline(geometrys, step_length):
                 y_start = ccc * integrate(s1, (t, 0, ls[-1]))
                 x_move = x - x_start
                 y_move = y - y_start
-                hdg_rotation = hdg - hdg_end # 旋轉角度在终点，旋转中心在原点
+                hdg_rotation = hdg - hdg_end  # 旋轉角度在终点，旋转中心在原点
 
                 def Coordinate_move_rotation(X, Y):
                     # 1. 平移至初始位置 2.围绕初始点进行旋转
@@ -133,8 +136,8 @@ def get_Refline(geometrys, step_length):
                     Y = ccc * S_ls
 
                     X, Y = Coordinate_move_rotation(X, Y)
-                    xy[len_ls-i-1][0] = X
-                    xy[len_ls-i-1][1] = Y
+                    xy[len_ls - i - 1][0] = X
+                    xy[len_ls - i - 1][1] = Y
 
                 # plt.plot([i[0] for i in xy], [i[1] for i in xy], color=next(color_c), linestyle="", marker=".")
                 # plt.show()
@@ -160,6 +163,7 @@ def get_Refline(geometrys, step_length):
                 x_move = x - x_start
                 y_move = y - y_start
                 hdg_rotation = hdg - hdg_start
+
                 def Coordinate_move_rotation(X, Y):
                     # 1. 平移至初始位置 2.围绕初始点进行旋转
                     X = X + x_move
@@ -182,7 +186,7 @@ def get_Refline(geometrys, step_length):
                 # plt.plot([i[0] for i in xy], [i[1] for i in xy], color=next(color_c), linestyle="", marker=".")
                 # plt.show()
 
-        elif Rline.getElementsByTagName('poly3'): #TODO 已放弃
+        elif Rline.getElementsByTagName('poly3'):  # TODO 已放弃
             raise Exception("Unknown Geometry <poly3> !!!")
 
         elif Rline.getElementsByTagName('paramPoly3'):
@@ -210,9 +214,9 @@ def get_Refline(geometrys, step_length):
                 u = aU + bU * i + cU * i ** 2 + dU * i ** 3
                 v = aV + bV * i + cV * i ** 2 + dV * i ** 3
 
-                X, Y = Coordinate_rotation(u, v, hdg) # 转向，偏移
-                X = x + X  # %x值平移；
-                Y = Y + y  # %y值平移，后面不再重复；
+                X, Y = Coordinate_rotation(u, v, hdg)  # 转向，偏移
+                X = x + X  # %x值平移
+                Y = Y + y  # %y值平移
                 xy[index][0] = X
                 xy[index][1] = Y
                 index += 1
@@ -227,3 +231,19 @@ def get_Refline(geometrys, step_length):
         # plt.show()
 
     return road_length, init_xy
+
+
+def get_elevation(elevations, length):
+    start_elevation = elevations[0]
+    end_elevation = elevations[-1]
+    start_high = float(start_elevation.getAttribute('a'))
+
+    s = float(end_elevation.getAttribute('s'))
+    a = float(end_elevation.getAttribute('a'))
+    b = float(end_elevation.getAttribute('b'))
+    c = float(end_elevation.getAttribute('c'))
+    d = float(end_elevation.getAttribute('d'))
+
+    ds = length - s
+    end_high = a + b * ds + c * ds ** 2 + d * ds ** 3
+    return start_high, end_high

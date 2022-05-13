@@ -1,9 +1,8 @@
-from xml.dom.minidom import parse
-from opendrive2tess.utils import get_Refline
-
 import matplotlib.pyplot as plt
 import csv
-from functools import reduce
+
+from xml.dom.minidom import parse
+from opendrive2tess.utils import get_Refline, get_elevation, color_c
 
 
 def get_roads_info(xodr, step_length):
@@ -25,29 +24,26 @@ def get_roads_info(xodr, step_length):
         geometrys = plan_view.getElementsByTagName('geometry')
         # 获取参考线坐标式, 一般为多段线
         road_length, center_vertices = get_Refline(geometrys, step_length)
-
         sum_xy += center_vertices
-        # plt.plot([i[0] for i in sum_xy], [i[1] for i in sum_xy], color='g', linestyle="", marker=".")
-        # plt.show()
+
+        # 获取高程信息
+        elevationProfiles = road.getElementsByTagName('elevationProfile')
+        if not elevationProfiles:
+            start_high, end_high = 0, 0
+        else:
+            elevations = elevationProfiles[0].getElementsByTagName('elevation')
+            start_high, end_high = get_elevation(elevations, road_length)
+
         roads_info[road_id] = {
             "junction_id": junction_id,  # -1 为非junction，此道路是在交叉口内部
             'center_vertices': center_vertices,
             'length': road_length,
-            # 高程/超高程信息暫未獲取
+            'start_high': start_high,
+            'end_high': end_high,
+            # 路段边界作用不大，TESS是固定的车道宽度
         }
 
     return roads_info
-
-
-def get_color():
-    color_list = ['y', 'b', 'g', 'r']
-    i = 0
-    while True:
-        yield color_list[i % len(color_list)]
-        i += 1
-
-
-color_c = get_color()
 
 
 def show_roads(f1, f2, roads_info):
@@ -75,10 +71,10 @@ def show_roads(f1, f2, roads_info):
 
 
 if __name__ == '__main__':
-    xodr_file = "../test1.xodr"
+    xodr_file = "map_hz_kaifangroad.xodr"
     xodr = parse(xodr_file)
 
-    step_length = 0.1
+    step_length = 10
     roads_info = get_roads_info(xodr, step_length)
     # 绘制参考线&寫入文件
     f1 = open("路段.csv", 'w', newline='')
