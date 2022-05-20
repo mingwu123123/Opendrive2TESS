@@ -1,3 +1,5 @@
+import time
+
 import matplotlib.pyplot as plt
 import csv
 
@@ -13,30 +15,32 @@ def get_roads_info(xodr, step_length):
     for road in links:
         # 多条路段
         road_id = int(road.getAttribute('id'))
+        print(road_id)
+        # if road_id != 2203:
+        #     continue
         junction_id = int(road.getAttribute('junction'))
-
-        # temp_link = road.getElementsByTagName('link')
-        # link_successors = temp_link[0].getElementsByTagName('successor')
-        # link_predecessors = temp_link[0].getElementsByTagName('predecessor')
 
         plan_view = road.getElementsByTagName('planView')[0]  # 每条道路有且仅有一条参考线，参考线通常在道路中心，但也可能有侧向偏移。
         # 参考线可能由多段曲线拼接而成
         geometrys = plan_view.getElementsByTagName('geometry')
         # 获取参考线坐标式, 一般为多段线
-        road_length, center_vertices = get_Refline(geometrys, step_length)
-        sum_xy += center_vertices
+        road_length, road_center_vertices, geometry_center_vertices = get_Refline(geometrys, step_length)
+
+        sum_xy += road_center_vertices
 
         # 获取高程信息
         elevationProfiles = road.getElementsByTagName('elevationProfile')
         if not elevationProfiles:
             start_high, end_high = 0, 0
         else:
+            # 高程 和 section 是互相独立的
             elevations = elevationProfiles[0].getElementsByTagName('elevation')
             start_high, end_high = get_elevation(elevations, road_length)
 
         roads_info[road_id] = {
             "junction_id": junction_id,  # -1 为非junction，此道路是在交叉口内部
-            'center_vertices': center_vertices,
+            'road_center_vertices': road_center_vertices,
+            'geometry_center_vertices': geometry_center_vertices,  # 每个section 分开，方便微观处理
             'length': road_length,
             'start_high': start_high,
             'end_high': end_high,
@@ -54,29 +58,33 @@ def show_roads(f1, f2, roads_info):
     writer2.writerow(["连接段ID", "長度(m)", "中心点序列", "左侧折点序列", "右侧折点序列"])
     sum_xy = []
     for road_id, road_data in roads_info.items():
-        xy = road_data['center_vertices']
-        center_string = ' '.join(["({} {}) ".format(coo[0], coo[1]) for coo in road_data['center_vertices']])
+        xy = road_data['road_center_vertices']
+        center_string = ' '.join(["({} {}) ".format(coo[0], coo[1]) for coo in road_data['road_center_vertices']])
         sum_xy += xy
 
         if road_data['junction_id'] == -1:  # 非路口
-            color = 'g'
+            color = 'r'
             writer1.writerow([road_id, '', road_data['length'], center_string, '', ''])
         else:
-            color = 'r'
+            color = 'g'
             writer2.writerow([road_id, road_data['length'], center_string, '', ''])
-        plt.plot([i[0] for i in sum_xy], [i[1] for i in sum_xy], color=next(color_c), linestyle="", marker=".")
+        plt.plot([i[0] for i in sum_xy], [i[1] for i in sum_xy], color=color, linestyle="", marker=".")
     plt.show()
     f1.close()
     f2.close()
+    return sum_xy
 
 
 if __name__ == '__main__':
-    xodr_file = "map_hz_kaifangroad.xodr"
+    xodr_file = "files/test1.xodr"
     xodr = parse(xodr_file)
+    start_time = time.time()
 
-    step_length = 10
+    step_length = 0.1
     roads_info = get_roads_info(xodr, step_length)
     # 绘制参考线&寫入文件
-    f1 = open("路段.csv", 'w', newline='')
-    f2 = open("连接段.csv", 'w', newline='')
+    f1 = open("files/路段.csv", 'w', newline='')
+    f2 = open("files/连接段.csv", 'w', newline='')
     show_roads(f1, f2, roads_info)
+    end_time = time.time()
+    print(end_time - start_time)

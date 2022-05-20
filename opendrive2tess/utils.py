@@ -1,8 +1,11 @@
+import json
+from functools import lru_cache
+
 import matplotlib.pyplot as plt
 
 from math import sin
 from cmath import cos, pi
-from matlab import *
+from matlab import zeros, linspace
 
 
 def get_color():
@@ -22,10 +25,40 @@ def Coordinate_rotation(X, Y, theta):  # %X、Y是局部坐标值，theta对应�
     return x, y
 
 
+# 插值法效率不高，采用cache，或者预置json文件
+size = 4
+with open(f'files/integrate_{size}.json', 'r') as f:
+    integrate_mapping = json.load(f)
+
+
+@lru_cache(maxsize=10000)
+def get_integrate_basic(lower, higher, type):
+    if '%.4f' % higher in integrate_mapping.get(type, {}).get('%.4f' % lower, {}).keys():
+        return integrate_mapping[type]['%.4f' % lower]['%.4f' % higher]
+    from sympy import Symbol, integrate, sqrt, cos, pi, sin
+    t = Symbol("t")
+    c1 = (1 / sqrt(2 * pi)) * (cos(t) / sqrt(t))
+    s1 = (1 / sqrt(2 * pi)) * (sin(t) / sqrt(t))
+    if type == "x":
+        return float(integrate(c1, (t, lower, higher)))
+    elif type == 'y':
+        return float(integrate(s1, (t, lower, higher)))
+
+
+# 在此处将角度统一化
+def get_integrate(lower, higher, type):
+    lower = round(lower, size)
+    higher = round(higher, size)
+    lower = min(pi, max(lower, -pi))
+    higher = min(pi, max(higher, -pi))
+    print(lower, higher, type)
+    return get_integrate_basic(lower, higher, type)
+
+
 def get_Refline(geometrys, step_length):
     init_xy = []
-    road_length = 0
     sum_xy = []
+    road_length = 0
     # 参考线可能由多段曲线拼接而成
     for Rline in geometrys:
         s = float(Rline.getAttribute('s'))
@@ -33,9 +66,8 @@ def get_Refline(geometrys, step_length):
         y = float(Rline.getAttribute('y'))
         hdg = float(Rline.getAttribute('hdg'))
         length = float(Rline.getAttribute('length'))
-        steps = int(length // step_length + 1)
-
         road_length += length
+        steps = int(length // step_length + 2)
 
         if Rline.getElementsByTagName('line'):  # TODO 直线情况下，是否可以直接取到终点
             from sympy import cos, sin
@@ -93,7 +125,7 @@ def get_Refline(geometrys, step_length):
             xy = list(zip(x_list, y_list))
 
         elif Rline.getElementsByTagName('spiral'):  # 螺旋线
-            from sympy import Symbol, integrate, sqrt, cos, pi, sin
+            from sympy import Symbol, sqrt, cos, pi, sin
             spiral = Rline.getElementsByTagName('spiral')[0]
             curvStart = float(spiral.getAttribute("curvStart"))
             curvEnd = float(spiral.getAttribute("curvEnd"))
@@ -107,15 +139,12 @@ def get_Refline(geometrys, step_length):
                 len_ls = len(ls)
 
                 # from matlab import integral
-                t = Symbol("t")
-                c1 = (1 / sqrt(2 * pi)) * (cos(t) / sqrt(t))
-                s1 = (1 / sqrt(2 * pi)) * (sin(t) / sqrt(t))
                 xy = zeros((len_ls, 2))
                 ccc = sqrt(pi * length / abs(curvStart))  # 半径R = 1/曲率
 
                 # 计算初始曲率为0，斜率为0，起点为原点时的欧拉螺线 与 现有螺线的对应关系
-                x_start = -abs(ccc * integrate(c1, (t, 0, ls[-1])))
-                y_start = ccc * integrate(s1, (t, 0, ls[-1]))
+                x_start = -abs(ccc * get_integrate(0, ls[-1], 'x'))
+                y_start = ccc * get_integrate(0, ls[-1], 'y')
                 x_move = x - x_start
                 y_move = y - y_start
                 hdg_rotation = hdg - hdg_end  # 旋轉角度在终点，旋转中心在原点
@@ -130,8 +159,8 @@ def get_Refline(geometrys, step_length):
                     return nrx, nry
 
                 for i in range(0, len_ls):
-                    C_ls = abs(integrate(c1, (t, 0, ls[i])))
-                    S_ls = integrate(s1, (t, 0, ls[i]))
+                    C_ls = abs(get_integrate(0, ls[i], 'x'))
+                    S_ls = get_integrate(0, ls[i], 'y')
                     X = ccc * C_ls
                     Y = ccc * S_ls
 
@@ -139,8 +168,6 @@ def get_Refline(geometrys, step_length):
                     xy[len_ls - i - 1][0] = X
                     xy[len_ls - i - 1][1] = Y
 
-                # plt.plot([i[0] for i in xy], [i[1] for i in xy], color=next(color_c), linestyle="", marker=".")
-                # plt.show()
             else:
                 # TODO 曲率不是角度，要积分角度，角度可根据弧长和曲率算出
                 len_init = length * (curvStart / (curvEnd - curvStart))  # 转化成初始曲率为0，从原点开始计算
@@ -151,15 +178,12 @@ def get_Refline(geometrys, step_length):
                 len_ls = len(ls)
 
                 # from matlab import integral
-                t = Symbol("t")
-                c1 = (1 / sqrt(2 * pi)) * (cos(t) / sqrt(t))
-                s1 = (1 / sqrt(2 * pi)) * (sin(t) / sqrt(t))
                 xy = zeros((len_ls, 2))
                 ccc = sqrt(pi * length / abs(curvEnd))  # 半径R = 1/曲率
 
                 # 计算初始曲率为0，斜率为0，起点为原点时的欧拉螺线 与 现有螺线的对应关系
-                x_start = abs(ccc * integrate(c1, (t, 0, ls[0])))
-                y_start = ccc * integrate(s1, (t, 0, ls[0]))
+                x_start = abs(ccc * get_integrate(0, ls[0], 'x'))
+                y_start = ccc * get_integrate(0, ls[0], 'y')
                 x_move = x - x_start
                 y_move = y - y_start
                 hdg_rotation = hdg - hdg_start
@@ -174,8 +198,8 @@ def get_Refline(geometrys, step_length):
                     return nrx, nry
 
                 for i in range(0, len_ls):
-                    C_ls = abs(integrate(c1, (t, 0, ls[i])))
-                    S_ls = integrate(s1, (t, 0, ls[i]))
+                    C_ls = abs(get_integrate(0, ls[i], 'x'))
+                    S_ls = get_integrate(0, ls[i], 'y')
                     X = ccc * C_ls
                     Y = ccc * S_ls
 
@@ -183,13 +207,11 @@ def get_Refline(geometrys, step_length):
                     xy[i][0] = X
                     xy[i][1] = Y
 
-                # plt.plot([i[0] for i in xy], [i[1] for i in xy], color=next(color_c), linestyle="", marker=".")
-                # plt.show()
-
         elif Rline.getElementsByTagName('poly3'):  # TODO 已放弃
             raise Exception("Unknown Geometry <poly3> !!!")
 
         elif Rline.getElementsByTagName('paramPoly3'):
+            print('paramPoly3')
             paramPoly3 = Rline.getElementsByTagName('paramPoly3')[0]  # 一个geometry只有一条参考线
             aU = float(paramPoly3.getAttribute('aU'))
             bU = float(paramPoly3.getAttribute('bU'))
@@ -224,13 +246,23 @@ def get_Refline(geometrys, step_length):
             raise Exception("Unknown Geometry !!!")
         # plt.plot([i[0] for i in xy], [i[1] for i in xy], color=next(color_c), linestyle="", marker=".")
 
+        # 判断是否需要使用插值法
+        # num = init_steps // steps # 是否加一
+        # if use_interp and num > 1:
+        #     x_list = [i[0] for i in xy]
+        #     y_list = [i[1] for i in xy]
+        #     xvals = []
+        #     for index in range(1, len(x_list)):
+        #         if index == len(x_list) - 1:
+        #             xvals += list((np.linspace(x_list[index - 1], x_list[index], num + 1)))
+        #         else:
+        #             xvals += list((np.linspace(x_list[index - 1], x_list[index], num, endpoint=False)))  # 防止重复,末尾数字不添加进等差数列
+        #     yinterp = np.interp(xvals, x_list, y_list)
+        #     xy = list(zip(xvals, yinterp))
         init_xy += [[i[0], i[1]] for i in xy]
         sum_xy.append(xy)
-        # for cc in sum_xy:
-        #     plt.plot([i[0] for i in cc], [i[1] for i in cc], color=next(color_c), linestyle="", marker=".")
-        # plt.show()
 
-    return road_length, init_xy
+    return road_length, init_xy, sum_xy
 
 
 def get_elevation(elevations, length):
