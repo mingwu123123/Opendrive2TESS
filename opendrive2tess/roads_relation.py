@@ -1,3 +1,4 @@
+import collections
 import time
 
 import matplotlib.pyplot as plt
@@ -26,6 +27,27 @@ def get_roads_info(xodr, step_length):
         # 获取参考线坐标式, 一般为多段线
         road_length, road_center_vertices, geometry_center_vertices = get_Refline(geometrys, step_length)
 
+        # 车道信息
+        lanes = road.getElementsByTagName('lanes')[0]  # 每条路段有且仅有一处lanes
+        lane_sections = lanes.getElementsByTagName('laneSection')
+        def default_section():
+            return {
+                'right': [],
+                'left': [],
+                'all': []
+            }
+        index = 0
+        sections_mapping = collections.defaultdict(default_section)
+        for lane_section in lane_sections:
+            right = lane_section.getElementsByTagName('right')
+            left = lane_section.getElementsByTagName('left')
+            if right:
+                sections_mapping[index]['right'] = [int(lane.getAttribute('id')) for lane in right[0].getElementsByTagName('lane')]
+            if left:
+                sections_mapping[index]['left'] = [int(lane.getAttribute('id')) for lane in left[0].getElementsByTagName('lane')]
+            sections_mapping[index]['all'] = sections_mapping[index]['right'] + sections_mapping[index]['left']
+            index += 1
+
         sum_xy += road_center_vertices
 
         # 获取高程信息
@@ -44,6 +66,7 @@ def get_roads_info(xodr, step_length):
             'length': road_length,
             'start_high': start_high,
             'end_high': end_high,
+            'lane_sections': sections_mapping,
             # 路段边界作用不大，TESS是固定的车道宽度
         }
 
@@ -65,10 +88,11 @@ def show_roads(f1, f2, roads_info):
         if road_data['junction_id'] == -1:  # 非路口
             color = 'r'
             writer1.writerow([road_id, '', road_data['length'], center_string, '', ''])
+            plt.plot([i[0] for i in sum_xy], [i[1] for i in sum_xy], color=color, linestyle="", marker=".")
         else:
             color = 'g'
             writer2.writerow([road_id, road_data['length'], center_string, '', ''])
-        plt.plot([i[0] for i in sum_xy], [i[1] for i in sum_xy], color=color, linestyle="", marker=".")
+            plt.plot([i[0] for i in sum_xy], [i[1] for i in sum_xy], color=color, linestyle="", marker=".")
     plt.show()
     f1.close()
     f2.close()
@@ -76,15 +100,20 @@ def show_roads(f1, f2, roads_info):
 
 
 if __name__ == '__main__':
-    xodr_file = "files/test1.xodr"
+    num = 4
+    xodr_file = f"files/test{num}.xodr"
     xodr = parse(xodr_file)
     start_time = time.time()
 
-    step_length = 0.1
+    step_length = 0.5
     roads_info = get_roads_info(xodr, step_length)
     # 绘制参考线&寫入文件
-    f1 = open("files/路段.csv", 'w', newline='')
-    f2 = open("files/连接段.csv", 'w', newline='')
+    f1 = open(f"files/路段{num}.csv", 'w', newline='')
+    f2 = open(f"files/连接段{num}.csv", 'w', newline='')
     show_roads(f1, f2, roads_info)
     end_time = time.time()
     print(end_time - start_time)
+
+    import json
+    with open(f'files/路段{num}.json', 'w') as f:
+        json.dump(roads_info, f)

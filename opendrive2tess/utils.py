@@ -259,7 +259,9 @@ def get_Refline(geometrys, step_length):
         #             xvals += list((np.linspace(x_list[index - 1], x_list[index], num, endpoint=False)))  # 防止重复,末尾数字不添加进等差数列
         #     yinterp = np.interp(xvals, x_list, y_list)
         #     xy = list(zip(xvals, yinterp))
-        init_xy += [[i[0], i[1]] for i in xy]
+        if not isinstance(xy, list):
+            xy = xy.tolist()
+        init_xy += xy
         sum_xy.append(xy)
 
     return road_length, init_xy, sum_xy
