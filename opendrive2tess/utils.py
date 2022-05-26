@@ -51,7 +51,7 @@ def get_integrate(lower, higher, type):
     higher = round(higher, size)
     lower = min(pi, max(lower, -pi))
     higher = min(pi, max(higher, -pi))
-    print(lower, higher, type)
+    # print(lower, higher, type)
     return get_integrate_basic(lower, higher, type)
 
 
@@ -211,7 +211,7 @@ def get_Refline(geometrys, step_length):
             raise Exception("Unknown Geometry <poly3> !!!")
 
         elif Rline.getElementsByTagName('paramPoly3'):
-            print('paramPoly3')
+            # print('paramPoly3')
             paramPoly3 = Rline.getElementsByTagName('paramPoly3')[0]  # 一个geometry只有一条参考线
             aU = float(paramPoly3.getAttribute('aU'))
             bU = float(paramPoly3.getAttribute('bU'))

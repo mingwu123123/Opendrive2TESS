@@ -96,8 +96,8 @@ def show_lanes(f1, f2, scenario, lanes_info, road_junction):
         y_list = []
         # 获取所在路段
         road_id = lanes_info[lane.lanelet_id]['road_id']
-        print(road_id, lanes_info[lane.lanelet_id]['type'], lanes_info[lane.lanelet_id]['name'])
-        # if road_id in [235, 2203]: # TODO 看他的上一个是什么，怎么连接
+        # print(road_id, lanes_info[lane.lanelet_id]['type'], lanes_info[lane.lanelet_id]['name'])
+        # if road_id not in [460]: # TODO 看他的上一个是什么，怎么连接
         #     continue
         lane_name = lanes_info[lane.lanelet_id]['name']
 
@@ -141,9 +141,19 @@ if __name__ == "__main__":
     xodr_file = f"files/test{num}.xodr"
 
     with open(xodr_file, "r") as file_in:
-        obj = etree.parse(file_in).getroot()
-        opendrive = parse_opendrive(obj)
-
+        root_node = etree.parse(file_in).getroot()
+        # 查找连接点
+        for junction in root_node.findall("junction"):
+            for connection in junction.findall("connection"):
+                if connection.get("connectingRoad") == "460" and connection.get("incomingRoad") == "68":
+                    print(connection.get("contactPoint"))
+        opendrive = parse_opendrive(root_node)
+                # newConnection.id = connection.get("id")
+                # newConnection.incomingRoad = connection.get("incomingRoad")
+                # newConnection.connectingRoad = connection.get("connectingRoad")
+                # newConnection.contactPoint = connection.get("contactPoint")
+                # if newConnection.connectingRoad == 460 and newConnection.incomingRoad == 68:
+                #     print(1)
 
     # ps: 在 junction 里面也会有 lane_name
     # 这一步加载道路信息，比如参考线之类，但同时删除了过多的历史信息，需要手动调整源码

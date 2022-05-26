@@ -16,7 +16,7 @@ def get_roads_info(xodr, step_length):
     for road in links:
         # 多条路段
         road_id = int(road.getAttribute('id'))
-        print(road_id)
+        # print(road_id)
         # if road_id != 2203:
         #     continue
         junction_id = int(road.getAttribute('junction'))
@@ -81,6 +81,8 @@ def show_roads(f1, f2, roads_info):
     writer2.writerow(["连接段ID", "長度(m)", "中心点序列", "左侧折点序列", "右侧折点序列"])
     sum_xy = []
     for road_id, road_data in roads_info.items():
+        # if road_id not in [460]: # TODO 看他的上一个是什么，怎么连接
+        #     continue
         xy = road_data['road_center_vertices']
         center_string = ' '.join(["({} {}) ".format(coo[0], coo[1]) for coo in road_data['road_center_vertices']])
         sum_xy += xy
@@ -112,7 +114,7 @@ if __name__ == '__main__':
     f2 = open(f"files/连接段{num}.csv", 'w', newline='')
     show_roads(f1, f2, roads_info)
     end_time = time.time()
-    print(end_time - start_time)
+    # print(end_time - start_time)
 
     import json
     with open(f'files/路段{num}.json', 'w') as f:
