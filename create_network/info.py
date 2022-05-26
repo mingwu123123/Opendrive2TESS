@@ -11,15 +11,15 @@ with open(f'basic_info/files/路段{num}.json', 'r') as f:
 with open(f'basic_info/files/车道{num}.json', 'r') as f:
     lanes_info = json.load(f)
 
-
-for _, road_info in roads_info.items():
-    # road
-    road_info["sections"] = {}
+#
+# for _, road_info in roads_info.items():
+#     # road
+#     road_info["sections"] = {}
     # road_info["max_lane"] = 0
     # road_info["min_lane"] = 0
 
 for lane_name, lane_info in lanes_info.items():
-    if not lane_info: # 无头无尾的车道，是空信息
+    if not lane_info:  # 此车道只是文件中某车道的前置或者后置车道，仅仅被提及，是空信息，跳过
         continue
     road_id = lane_info['road_id']
     section_id = lane_info['section_id']
@@ -29,10 +29,6 @@ for lane_name, lane_info in lanes_info.items():
     roads_info[road_id].setdefault('sections', {})
     roads_info[road_id]['sections'].setdefault(section_id, {})
     roads_info[road_id]['sections'][section_id].setdefault('lanes', {})
-
-    # if section_id != 0:
-    #     continue
-    # 暂时只考虑单section情况
     roads_info[road_id]['sections'][section_id]["lanes"][lane_id] = lane_info
 
 # for _, road_info in roads_info.items():

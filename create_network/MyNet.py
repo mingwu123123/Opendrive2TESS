@@ -9,13 +9,17 @@ from basic_info.info import roads_info, lanes_info
 
 
 class Section:
-    def __init__(self, road_id, section_id, lane_ids: list=None):
+    def __init__(self, road_id, section_id, lane_ids: list):
         self.road_id = road_id
         self.id = section_id
 
         self._left_link = None
         self._right_link = None
         self.lane_ids = list(lane_ids or [])
+        # 左右来向的车道id分别为正负， 需要根据tess的规则进行排序
+        self.left_lane_ids = sorted(filter(lambda i: i>0, self.lane_ids, ), reverse=True)
+        self.right_lane_ids = sorted(filter(lambda i: i<0, self.lane_ids, ), reverse=False)
+        self.lane_mapping = {}
 
     @property
     def left_link(self):
@@ -23,6 +27,10 @@ class Section:
 
     @left_link.setter
     def left_link(self, obj):
+        index = 0
+        for lane in obj.lanes():
+            self.lane_mapping[self.left_lane_ids[index]] = lane
+            index += 1
         self._left_link = obj
 
     @property
@@ -31,16 +39,24 @@ class Section:
 
     @right_link.setter
     def right_link(self, obj):
+        index = 0
+        for lane in obj.lanes():
+            self.lane_mapping[self.right_lane_ids[index]] = lane
+            index += 1
         self._right_link = obj
 
+    # def set_lanes(self, lane_ids):
+
+
     def tess_lane(self, lane_id):
-        # 此处要求同一路段中的所有车道被建立，否则，可以在tess link中保存原车道id，更加精确
-        if lane_id > 0:
-            tess_lanes = sorted(self.left_link.lanes(), key=lambda i: -i.number())
-            return tess_lanes[lane_id - 1]
-        else:
-            tess_lanes = sorted(self.right_link.lanes(), key=lambda i: -i.number())
-            return tess_lanes[abs(lane_id) - 1]
+        # # 此处要求同一路段中的所有车道被建立，否则，可以在tess link中保存原车道id，更加精确
+        # if lane_id > 0:
+        #     tess_lanes = sorted(self.left_link.lanes(), key=lambda i: -i.number())
+        #     return tess_lanes[lane_id - 1]
+        # else:
+        #     tess_lanes = sorted(self.right_link.lanes(), key=lambda i: -i.number())
+        #     return tess_lanes[abs(lane_id) - 1]
+        return self.lane_mapping[lane_id]
 
     def tess_link(self, lane_id):
         if lane_id > 0:
@@ -165,8 +181,8 @@ class MyNet(PyCustomerNet):
                     # 车道排序，车道id为正，越大的越先在tess中创建，路段序列取反向参考线
                     # land_ids = sorted([lane_id for lane_id in roads_info[road_id]['lanes'].keys() if lane_id > 0],
                     #                   reverse=True)
-                    land_ids = sorted(section_info['left'], reverse=True)
-
+                    # land_ids = sorted(section_info['left'], reverse=True)
+                    land_ids = tess_section.left_lane_ids
                     lCenterLinePoint = get_coo_list(road_info['road_center_vertices'][::-1])
                     lanesWithPoints = [
                         {
@@ -179,6 +195,7 @@ class MyNet(PyCustomerNet):
 
                     tess_section.left_link = netiface.createLinkWithLanePoints(lCenterLinePoint, lanesWithPoints,
                                                                             f"{road_id}_{section_id}_left")
+                    # tess_section.left_link.lanes()
 
                     # print(tess_section.left_link.id(), road_id)
 
@@ -189,8 +206,7 @@ class MyNet(PyCustomerNet):
                     # land_ids = sorted([lane_id for lane_id in roads_info[road_id]['lanes'].keys() if lane_id < 0], reverse=False)
                     land_ids = sorted(section_info['right'], reverse=False)
                     lCenterLinePoint = get_coo_list(roads_info[road_id]['road_center_vertices'])
-                    try:
-                        lanesWithPoints = [
+                    lanesWithPoints = [
                         {
                             'left': get_coo_list(road_info['sections'][section_id]["lanes"][lane_id]['left_vertices']),
                             'center': get_coo_list(road_info['sections'][section_id]["lanes"][lane_id]['center_vertices']),
@@ -198,10 +214,7 @@ class MyNet(PyCustomerNet):
                         }
                         for lane_id in land_ids # if roads_info[road_id]['lanes'][lane_id]['type']=='driving'
                     ]
-                    except Exception as e:
-                        #为什么 road_info['sections'][section_id]["lanes"][lane_id] 没有-5 的lane
-                        # print(road_id, section_id, land_ids)
-                        print(1)
+
                     tess_section.right_link = netiface.createLinkWithLanePoints(lCenterLinePoint, lanesWithPoints,
                                                                              f"{road_id}_{section_id}_right")
                     # print(tess_section.right_link.id(), road_id)
@@ -269,7 +282,7 @@ class MyNet(PyCustomerNet):
                         to_lane = to_section.tess_lane(to_lane_id)
 
                         # if from_lane.number() != 0 and to_lane.number() != 0: #  and from_road_id == 235 and to_road_id == 237:
-                        print(f"{from_link.id()}-{to_link.id()}", from_lane.number(), to_lane.number())
+                        # print(f"{from_link.id()}-{to_link.id()}", from_lane.number(), to_lane.number())
                         connector_mapping[f"{from_link.id()}-{to_link.id()}"]['lFromLaneNumber'].append(
                             from_lane.number() + 1)
                         connector_mapping[f"{from_link.id()}-{to_link.id()}"]['lToLaneNumber'].append(to_lane.number() + 1)
@@ -281,6 +294,7 @@ class MyNet(PyCustomerNet):
                             {
                                 "predecessor_id": predecessor_id,
                                 "successor_id": successor_id,
+                                'junction': False,
                             }
                         )
             #             print(v['lFromLaneNumber'] for k, v in connector_mapping.items())
@@ -307,10 +321,7 @@ class MyNet(PyCustomerNet):
                         if not is_true:  # 部分车道的连接关系可能是'2.3.None.-1'，需要清除
                             continue
 
-                        try:
-                            from_section = road_mapping[from_road_id].section(from_section_id)
-                        except:
-                            print(1)
+                        from_section = road_mapping[from_road_id].section(from_section_id)
                         from_link = from_section.tess_link(from_lane_id)
                         from_lane = from_section.tess_lane(from_lane_id)
                         # from_link = link_mapping[from_road_id].tess_link(from_lane_id)
@@ -327,14 +338,15 @@ class MyNet(PyCustomerNet):
                             to_section = road_mapping[to_road_id].section(to_section_id)
                             to_link = to_section.tess_link(to_lane_id)
                             to_lane = to_section.tess_lane(to_lane_id)
-
+                            # if not (from_link.id() == 48 and to_link.id() == 43):
+                            #     continue
                             # to_link = link_mapping[to_road_id].tess_link(to_lane_id)
                             # to_lane = link_mapping[to_road_id].tess_lane(to_lane_id)
 
                             # if not (from_road_id == 235 and to_road_id == 237):
                             #     continue
 
-                            print(f"{from_link.id()}-{to_link.id()}", from_lane.number(), to_lane.number())
+                            # print(f"{from_link.id()}-{to_link.id()}", from_lane.number(), to_lane.number())
                             connector_mapping[f"{from_link.id()}-{to_link.id()}"]['lFromLaneNumber'].append(
                                 from_lane.number() + 1)
                             connector_mapping[f"{from_link.id()}-{to_link.id()}"]['lToLaneNumber'].append(
@@ -351,6 +363,11 @@ class MyNet(PyCustomerNet):
                                 {
                                     "predecessor_id": predecessor_id,
                                     "successor_id": successor_id,
+                                    "lane_id": lane_info["name"],
+                                    "connector_vertices": connector_vertices,
+                                    'junction': True,
+                                    "from_link": from_link,
+                                    "to_link": to_link,
                                 }
                             )
 
@@ -361,9 +378,20 @@ class MyNet(PyCustomerNet):
             lFromLaneNumber = link_info['lFromLaneNumber']
             lToLaneNumber = link_info['lToLaneNumber']
             lanesWithPoints3 = link_info['lanesWithPoints3']
+
+            types = set(i['junction'] for i in link_info['infos'])
+            if link_id == '22-11':
+                print(1)
+            if True in types and False in types:
+                link_type = 'all'
+            elif True in types:
+                link_type = 'junction'
+            else:
+                link_type = 'link'
+
             netiface.createConnectorWithPoints(from_link_id, to_link_id,
                                                lFromLaneNumber, lToLaneNumber,
-                                               lanesWithPoints3)
+                                               lanesWithPoints3, f"{from_link_id}-{to_link_id}-{link_type}")
             # import matplotlib.pyplot as plt
             # x_list, y_list = [i[0] for i in lanesWithPoints3], [i[1] for i in lanesWithPoints3]
             # index = len(x_list) // 2
@@ -381,7 +409,7 @@ class MyNet(PyCustomerNet):
         netiface = iface.netInterface()
         # 设置场景大小
         # netiface.setSceneSize(1000, 1000)
-        netiface.setSceneSize(2000, 500)
+        netiface.setSceneSize(4000, 1000)
         # 获取路段数
         count = netiface.linkCount()
         if (count == 0):
