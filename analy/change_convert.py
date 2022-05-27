@@ -19,10 +19,9 @@ def export_lanelet_network(
         init_id = parametric_lane.id_.split('.')[0]
         # 在这里添加 lanelet 的 原始信息
         # 所有路段都会有这个属性,调整精度
-        lanelet = parametric_lane.to_lanelet(0.5)
+        lanelet = parametric_lane.to_lanelet(0.5) # 精度调整
 
         lanelet.lane_name = parametric_lane.id_
-        # print(init_id, lanelet.lane_name)
         lanelet.type = parametric_lane.type
 
         lanelet.predecessor = self._link_index.get_predecessors(parametric_lane.id_)

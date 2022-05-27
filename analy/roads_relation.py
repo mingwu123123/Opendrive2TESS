@@ -1,11 +1,12 @@
 import collections
-import time
+import json
+import os
 
 import matplotlib.pyplot as plt
 import csv
 
 from xml.dom.minidom import parse
-from opendrive2tess.utils import get_Refline, get_elevation, color_c
+from analy.utils import get_Refline, get_elevation, color_c
 
 
 def get_roads_info(xodr, step_length):
@@ -30,21 +31,25 @@ def get_roads_info(xodr, step_length):
         # 车道信息
         lanes = road.getElementsByTagName('lanes')[0]  # 每条路段有且仅有一处lanes
         lane_sections = lanes.getElementsByTagName('laneSection')
+
         def default_section():
             return {
                 'right': [],
                 'left': [],
                 'all': []
             }
+
         index = 0
         sections_mapping = collections.defaultdict(default_section)
         for lane_section in lane_sections:
             right = lane_section.getElementsByTagName('right')
             left = lane_section.getElementsByTagName('left')
             if right:
-                sections_mapping[index]['right'] = [int(lane.getAttribute('id')) for lane in right[0].getElementsByTagName('lane')]
+                sections_mapping[index]['right'] = [int(lane.getAttribute('id')) for lane in
+                                                    right[0].getElementsByTagName('lane')]
             if left:
-                sections_mapping[index]['left'] = [int(lane.getAttribute('id')) for lane in left[0].getElementsByTagName('lane')]
+                sections_mapping[index]['left'] = [int(lane.getAttribute('id')) for lane in
+                                                   left[0].getElementsByTagName('lane')]
             sections_mapping[index]['all'] = sections_mapping[index]['right'] + sections_mapping[index]['left']
             index += 1
 
@@ -73,7 +78,13 @@ def get_roads_info(xodr, step_length):
     return roads_info
 
 
-def show_roads(f1, f2, roads_info):
+def write_roads(work_dir, num, roads_info, show):
+    with open(os.path.join(work_dir, "files", f"路段{num}.json"), 'w') as f:
+        json.dump(roads_info, f)
+
+    f1 = open(os.path.join(work_dir, "files", f"路段{num}.csv"), 'w', newline='')
+    f2 = open(os.path.join(work_dir, "files", f"连接段{num}.csv"), 'w', newline='')
+
     writer1 = csv.writer(f1)
     writer1.writerow(["路段ID", "路段名称", "長度(m)", "中心点序列", "左侧折点序列", "右侧折点序列"])
 
@@ -81,41 +92,36 @@ def show_roads(f1, f2, roads_info):
     writer2.writerow(["连接段ID", "長度(m)", "中心点序列", "左侧折点序列", "右侧折点序列"])
     sum_xy = []
     for road_id, road_data in roads_info.items():
-        # if road_id not in [460]: # TODO 看他的上一个是什么，怎么连接
-        #     continue
         xy = road_data['road_center_vertices']
         center_string = ' '.join(["({} {}) ".format(coo[0], coo[1]) for coo in road_data['road_center_vertices']])
         sum_xy += xy
 
         if road_data['junction_id'] == -1:  # 非路口
-            color = 'r'
             writer1.writerow([road_id, '', road_data['length'], center_string, '', ''])
-            plt.plot([i[0] for i in sum_xy], [i[1] for i in sum_xy], color=color, linestyle="", marker=".")
+            if show:
+                color = 'r'
+                plt.plot([i[0] for i in sum_xy], [i[1] for i in sum_xy], color=color, linestyle="", marker=".")
         else:
-            color = 'g'
             writer2.writerow([road_id, road_data['length'], center_string, '', ''])
-            plt.plot([i[0] for i in sum_xy], [i[1] for i in sum_xy], color=color, linestyle="", marker=".")
+            if show:
+                color = 'g'
+                plt.plot([i[0] for i in sum_xy], [i[1] for i in sum_xy], color=color, linestyle="", marker=".")
     plt.show()
     f1.close()
     f2.close()
     return sum_xy
 
 
-if __name__ == '__main__':
-    num = 4
-    xodr_file = f"files/test{num}.xodr"
+def main(num, work_dir, step_length=0.5, show=False):
+    xodr_file = os.path.join(work_dir, "files", f"test{num}.xodr")
     xodr = parse(xodr_file)
-    start_time = time.time()
 
-    step_length = 0.5
     roads_info = get_roads_info(xodr, step_length)
-    # 绘制参考线&寫入文件
-    f1 = open(f"files/路段{num}.csv", 'w', newline='')
-    f2 = open(f"files/连接段{num}.csv", 'w', newline='')
-    show_roads(f1, f2, roads_info)
-    end_time = time.time()
-    # print(end_time - start_time)
+    # 写入文件&绘制参考线
+    write_roads(work_dir, num, roads_info, show)
+    return roads_info
 
-    import json
-    with open(f'files/路段{num}.json', 'w') as f:
-        json.dump(roads_info, f)
+
+if __name__ == '__main__':
+    work_dir = os.getcwd()
+    main(3, work_dir, show=True)

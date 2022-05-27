@@ -1,3 +1,6 @@
+import os
+import json
+
 import matplotlib.pyplot as plt
 from lxml import etree
 from commonroad.scenario.scenario import Scenario
@@ -9,11 +12,12 @@ import csv
 
 from opendrive2lanelet.opendriveparser.parser import parse_opendrive
 
-from opendrive2tess.utils import color_c
+from analy.utils import color_c
 
-#TODO 过滤，lane_name
 
-def convert_opendrive(opendrive: OpenDrive) -> Scenario:
+# TODO 注意对第三方包的修改 --> change_convert.py
+
+def convert_opendrive(opendrive: OpenDrive, filter_types: list=None) -> Scenario:
     road_network = Network()
     road_network.load_opendrive(opendrive)
     # TODO 在此处过滤车道类型
@@ -42,6 +46,8 @@ def convert_opendrive(opendrive: OpenDrive) -> Scenario:
         "offRamp",
         "onRamp",
     ]
+    if filter_types:
+        laneTypes = filter_types
     return road_network.export_commonroad_scenario(filter_types=laneTypes)  # commonroad-io==2020.2 版本需要验证
 
 
@@ -84,7 +90,13 @@ def get_basic_info(opendrive, scenario):
     return lanes_info, road_junction
 
 
-def show_lanes(f1, f2, scenario, lanes_info, road_junction):
+def write_lanes(work_dir, num, scenario, lanes_info, road_junction, show=False):
+    with open(os.path.join(work_dir, "files", f'车道{num}.json'), 'w') as f:
+        json.dump(lanes_info, f)
+
+    f1 = open(os.path.join(work_dir, "files", f"车道{num}.csv"), 'w', newline='')
+    f2 = open(os.path.join(work_dir, "files", f"车道连接{num}.csv"), 'w', newline='')
+
     # 写入文件
     writer1 = csv.writer(f1)
     writer1.writerow(["路段ID", "路段名称", "车道ID", "宽度(m)", "中心点序列", "左侧折点序列", "右侧折点序列"])
@@ -96,9 +108,6 @@ def show_lanes(f1, f2, scenario, lanes_info, road_junction):
         y_list = []
         # 获取所在路段
         road_id = lanes_info[lane.lanelet_id]['road_id']
-        # print(road_id, lanes_info[lane.lanelet_id]['type'], lanes_info[lane.lanelet_id]['name'])
-        # if road_id not in [460]: # TODO 看他的上一个是什么，怎么连接
-        #     continue
         lane_name = lanes_info[lane.lanelet_id]['name']
 
         for coo in lane.center_vertices:
@@ -112,10 +121,8 @@ def show_lanes(f1, f2, scenario, lanes_info, road_junction):
         predecessor_ids = lane.predecessor
         successor_ids = lane.successor
         if road_junction.get(road_id) is None:  # 区分此路段是否属于 junction, 同时 正常车道也有前后
-            color = next(color_c)
             writer1.writerow([road_id, lane_name, lane.lanelet_id, '', center_string, left_string, right_string])
         else:
-            color = next(color_c)
             for successor_id in successor_ids:
                 for predecessor_id in predecessor_ids:
                     # 有可能车道的前置或者后续路段并不在此文件中，这种情况我们不记录<lanes_info[_id] 为{}， road_id 取''>
@@ -124,52 +131,36 @@ def show_lanes(f1, f2, scenario, lanes_info, road_junction):
                          lanes_info[predecessor_id].get('road_id', ''), predecessor_id,
                          center_string, left_string, right_string])
         index = len(x_list) // 2
-        plt.plot(x_list[:index], y_list[:index], color='g', linestyle="", marker=".", linewidth=1)
-        plt.plot(x_list[index:], y_list[index:], color='r', linestyle="", marker=".", linewidth=1)
-        # lan_id = int(lane.lane_name.split('.')[2])
-        # if road_id != 2203:
-        #     plt.plot(x_list, y_list, color='r', linestyle="", marker=".", linewidth=1)
-        # else:
-        #     plt.plot(x_list, y_list, color='g', linestyle="", marker=".", linewidth=1)
+        if show:
+            plt.plot(x_list[:index], y_list[:index], color='g', linestyle="", marker=".", linewidth=1)
+            plt.plot(x_list[index:], y_list[index:], color='r', linestyle="", marker=".", linewidth=1)
+
     f1.close()
     f2.close()
     plt.show()
 
 
-if __name__ == "__main__":
-    num = 4
-    xodr_file = f"files/test{num}.xodr"
+def main(num, work_dir, step_length=0.5, show=True, filter_types=None):  # step_length需要对第三方包进行修改
+    xodr_file = os.path.join(work_dir, "files", f"test{num}.xodr")
 
     with open(xodr_file, "r") as file_in:
         root_node = etree.parse(file_in).getroot()
         # 查找连接点
-        for junction in root_node.findall("junction"):
-            for connection in junction.findall("connection"):
-                if connection.get("connectingRoad") == "460" and connection.get("incomingRoad") == "68":
-                    print(connection.get("contactPoint"))
+        # for junction in root_node.findall("junction"):
+        #     for connection in junction.findall("connection"):
+        #         if connection.get("connectingRoad") == "460" and connection.get("incomingRoad") == "68":
+        #             print(connection.get("contactPoint"))
         opendrive = parse_opendrive(root_node)
-                # newConnection.id = connection.get("id")
-                # newConnection.incomingRoad = connection.get("incomingRoad")
-                # newConnection.connectingRoad = connection.get("connectingRoad")
-                # newConnection.contactPoint = connection.get("contactPoint")
-                # if newConnection.connectingRoad == 460 and newConnection.incomingRoad == 68:
-                #     print(1)
 
     # ps: 在 junction 里面也会有 lane_name
     # 这一步加载道路信息，比如参考线之类，但同时删除了过多的历史信息，需要手动调整源码
-    scenario = convert_opendrive(opendrive)
+    scenario = convert_opendrive(opendrive, filter_types)
     # 提取基础信息
     lanes_info, road_junction = get_basic_info(opendrive, scenario)
 
-
-    f1 = open(f"files/车道{num}.csv", 'w', newline='')
-    f2 = open(f"files/车道连接{num}.csv", 'w', newline='')
-
-    # 获取道路详情并写入文件
-    show_lanes(f1, f2, scenario, lanes_info, road_junction)
-    import json
-    with open(f'files/车道{num}.json', 'w') as f:
-        json.dump(lanes_info, f)
+    # 写入文件&绘制参考线
+    write_lanes(work_dir, num, scenario, lanes_info, road_junction, show)
+    return lanes_info
 
     # 输出为 xml文件 commroad格式, 需要更改 commonroad-io 版本
     # path = "test1.xml"
@@ -180,3 +171,8 @@ if __name__ == "__main__":
     #         source="OpenDRIVE 2 Lanelet Converter",
     #     )
     #     writer.write_scenario_to_file_io(fh)
+
+
+if __name__ == "__main__":
+    work_dir = os.getcwd()
+    main(3, work_dir, show=True, filter_types=None)
