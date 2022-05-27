@@ -56,7 +56,6 @@ def get_basic_info(opendrive, scenario):
     road_junction = {}
     for road in opendrive.roads:
         road_junction[road.id] = road.junction and road.junction.id  # 此道路是在交叉口内部
-    # print([k for k,v in road_junction.items() if v])
 
     # 获取道路与路段关系
     lanes_info = defaultdict(dict)
@@ -90,12 +89,12 @@ def get_basic_info(opendrive, scenario):
     return lanes_info, road_junction
 
 
-def write_lanes(work_dir, num, scenario, lanes_info, road_junction, show=False):
-    with open(os.path.join(work_dir, "files", f'车道{num}.json'), 'w') as f:
+def write_lanes(work_dir, file_name, scenario, lanes_info, road_junction, show=False):
+    with open(os.path.join(work_dir, f'{file_name}-车道.json'), 'w') as f:
         json.dump(lanes_info, f)
 
-    f1 = open(os.path.join(work_dir, "files", f"车道{num}.csv"), 'w', newline='')
-    f2 = open(os.path.join(work_dir, "files", f"车道连接{num}.csv"), 'w', newline='')
+    f1 = open(os.path.join(work_dir, f"{file_name}-车道.csv"), 'w', newline='')
+    f2 = open(os.path.join(work_dir, f"{file_name}-车道连接.csv"), 'w', newline='')
 
     # 写入文件
     writer1 = csv.writer(f1)
@@ -140,8 +139,8 @@ def write_lanes(work_dir, num, scenario, lanes_info, road_junction, show=False):
     plt.show()
 
 
-def main(num, work_dir, step_length=0.5, show=True, filter_types=None):  # step_length需要对第三方包进行修改
-    xodr_file = os.path.join(work_dir, "files", f"test{num}.xodr")
+def main(work_dir, file_name, step_length=0.5, show=True, filter_types=None):  # step_length需要对第三方包进行修改
+    xodr_file = os.path.join(work_dir, f"{file_name}.xodr")
 
     with open(xodr_file, "r") as file_in:
         root_node = etree.parse(file_in).getroot()
@@ -159,7 +158,7 @@ def main(num, work_dir, step_length=0.5, show=True, filter_types=None):  # step_
     lanes_info, road_junction = get_basic_info(opendrive, scenario)
 
     # 写入文件&绘制参考线
-    write_lanes(work_dir, num, scenario, lanes_info, road_junction, show)
+    write_lanes(work_dir, file_name.split('.')[0], scenario, lanes_info, road_junction, show)
     return lanes_info
 
     # 输出为 xml文件 commroad格式, 需要更改 commonroad-io 版本
@@ -174,5 +173,6 @@ def main(num, work_dir, step_length=0.5, show=True, filter_types=None):  # step_
 
 
 if __name__ == "__main__":
-    work_dir = os.getcwd()
-    main(3, work_dir, show=True, filter_types=None)
+    work_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
+    file_name = "test1"
+    main(work_dir, file_name, show=True, filter_types=None)

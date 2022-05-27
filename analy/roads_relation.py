@@ -78,12 +78,12 @@ def get_roads_info(xodr, step_length):
     return roads_info
 
 
-def write_roads(work_dir, num, roads_info, show):
-    with open(os.path.join(work_dir, "files", f"路段{num}.json"), 'w') as f:
+def write_roads(work_dir, file_name, roads_info, show):
+    with open(os.path.join(work_dir, f"{file_name}-路段.json"), 'w') as f:
         json.dump(roads_info, f)
 
-    f1 = open(os.path.join(work_dir, "files", f"路段{num}.csv"), 'w', newline='')
-    f2 = open(os.path.join(work_dir, "files", f"连接段{num}.csv"), 'w', newline='')
+    f1 = open(os.path.join(work_dir, f"{file_name}-路段.csv"), 'w', newline='')
+    f2 = open(os.path.join(work_dir, f"{file_name}-连接段.csv"), 'w', newline='')
 
     writer1 = csv.writer(f1)
     writer1.writerow(["路段ID", "路段名称", "長度(m)", "中心点序列", "左侧折点序列", "右侧折点序列"])
@@ -112,16 +112,17 @@ def write_roads(work_dir, num, roads_info, show):
     return sum_xy
 
 
-def main(num, work_dir, step_length=0.5, show=False):
-    xodr_file = os.path.join(work_dir, "files", f"test{num}.xodr")
+def main(work_dir, file_name, step_length=0.5, show=False):
+    xodr_file = os.path.join(work_dir, f"{file_name}.xodr")
     xodr = parse(xodr_file)
 
     roads_info = get_roads_info(xodr, step_length)
     # 写入文件&绘制参考线
-    write_roads(work_dir, num, roads_info, show)
+    write_roads(work_dir, file_name, roads_info, show)
     return roads_info
 
 
 if __name__ == '__main__':
-    work_dir = os.getcwd()
-    main(3, work_dir, show=True)
+    work_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
+    file_name = "test1"
+    main(work_dir, file_name, show=True)
