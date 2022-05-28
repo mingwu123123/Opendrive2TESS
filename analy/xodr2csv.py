@@ -83,6 +83,8 @@ def get_basic_info(opendrive, scenario):
             "center_vertices": lane.center_vertices.tolist(),
             "left_vertices": lane.left_vertices.tolist(),
             "right_vertices": lane.right_vertices.tolist(),
+            'traffic_lights': list(lane.traffic_lights),
+            'traffic_signs': list(lane.traffic_signs),
         }
 
     # 车道ID，中心车道为0， 正t方向升序，负t方向降序(基本可理解为沿参考线从左向右下降)
@@ -173,6 +175,6 @@ def main(work_dir, file_name, step_length=0.5, show=True, filter_types=None):  #
 
 
 if __name__ == "__main__":
-    work_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
-    file_name = "test1"
+    work_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'genjson', 'genjson_files')
+    file_name = "wanji_0701"
     main(work_dir, file_name, show=True, filter_types=None)

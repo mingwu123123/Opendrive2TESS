@@ -1,6 +1,7 @@
 import json
+import os
 from functools import lru_cache
-
+import collections
 import matplotlib.pyplot as plt
 
 from math import sin
@@ -27,7 +28,8 @@ def Coordinate_rotation(X, Y, theta):  # %X、Y是局部坐标值，theta对应�
 
 # 插值法效率不高，采用cache，或者预置json文件
 size = 4
-with open(f'files/integrate_{size}.json', 'r') as f:
+integrate_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files', f'integrate_{size}.json')
+with open(integrate_file, 'r') as f:
     integrate_mapping = json.load(f)
 
 
@@ -281,3 +283,61 @@ def get_elevation(elevations, length):
     ds = length - s
     end_high = a + b * ds + c * ds ** 2 + d * ds ** 3
     return start_high, end_high
+
+
+def get_lane_restrictions(lane):
+    speed_info = []
+    access_info = []
+    for speed in lane.getElementsByTagName('speed'):
+        speed_info.append(
+            {
+                "sOffset ": speed.getAttribute("sOffset"),
+                "max": float(speed.getAttribute("max")),
+                "unit": speed.getAttribute("unit"),
+            }
+        )
+    for access in lane.getElementsByTagName('access'):
+        access_info.append(
+            {
+                "sOffset ": access.getAttribute("sOffset"),
+                "rule ": access.getAttribute("rule"),
+                "restriction ": access.getAttribute("restriction"),
+            }
+        )
+    return {
+        "speeds": speed_info,
+        'accesss': access_info,
+    }
+
+
+def get_section_info(sections):
+    # 车道信息
+    def default_section():
+        return {
+            'right': [],
+            'left': [],
+            'all': [],
+            'infos': {}
+        }
+
+    index = 0
+    sections_mapping = collections.defaultdict(default_section)
+    for lane_section in sections:
+        right = lane_section.getElementsByTagName('right')
+        left = lane_section.getElementsByTagName('left')
+        if right:
+            for lane in right[0].getElementsByTagName('lane'):
+                lane_id = int(lane.getAttribute('id'))
+                sections_mapping[index]['right'].append(lane_id)
+                # 添加属性
+                sections_mapping[index]['infos'][lane_id] = get_lane_restrictions(lane)
+
+        if left:
+            for lane in left[0].getElementsByTagName('lane'):
+                lane_id = int(lane.getAttribute('id'))
+                sections_mapping[index]['left'].append(lane_id)
+                sections_mapping[index]['infos'][lane_id] = get_lane_restrictions(lane)
+
+        sections_mapping[index]['all'] = sections_mapping[index]['right'] + sections_mapping[index]['left']
+        index += 1
+    return sections_mapping

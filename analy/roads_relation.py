@@ -6,20 +6,21 @@ import matplotlib.pyplot as plt
 import csv
 
 from xml.dom.minidom import parse
-from analy.utils import get_Refline, get_elevation, color_c
+from analy.utils import get_Refline, get_elevation, color_c, get_section_info
 
 
 def get_roads_info(xodr, step_length):
     root = xodr.documentElement
     links = root.getElementsByTagName('road')
-    sum_xy = []
     roads_info = dict()
     for road in links:
         # 多条路段
         road_id = int(road.getAttribute('id'))
-        # print(road_id)
-        # if road_id != 2203:
+        road_name = road.getAttribute('name')
+        # if road_name not in ["434029", "434031", "434033", "434034", '434030']:
         #     continue
+        # print(road_id)
+
         junction_id = int(road.getAttribute('junction'))
 
         plan_view = road.getElementsByTagName('planView')[0]  # 每条道路有且仅有一条参考线，参考线通常在道路中心，但也可能有侧向偏移。
@@ -31,29 +32,7 @@ def get_roads_info(xodr, step_length):
         # 车道信息
         lanes = road.getElementsByTagName('lanes')[0]  # 每条路段有且仅有一处lanes
         lane_sections = lanes.getElementsByTagName('laneSection')
-
-        def default_section():
-            return {
-                'right': [],
-                'left': [],
-                'all': []
-            }
-
-        index = 0
-        sections_mapping = collections.defaultdict(default_section)
-        for lane_section in lane_sections:
-            right = lane_section.getElementsByTagName('right')
-            left = lane_section.getElementsByTagName('left')
-            if right:
-                sections_mapping[index]['right'] = [int(lane.getAttribute('id')) for lane in
-                                                    right[0].getElementsByTagName('lane')]
-            if left:
-                sections_mapping[index]['left'] = [int(lane.getAttribute('id')) for lane in
-                                                   left[0].getElementsByTagName('lane')]
-            sections_mapping[index]['all'] = sections_mapping[index]['right'] + sections_mapping[index]['left']
-            index += 1
-
-        sum_xy += road_center_vertices
+        sections_mapping = get_section_info(lane_sections)
 
         # 获取高程信息
         elevationProfiles = road.getElementsByTagName('elevationProfile')
@@ -65,6 +44,7 @@ def get_roads_info(xodr, step_length):
             start_high, end_high = get_elevation(elevations, road_length)
 
         roads_info[road_id] = {
+            "name": road_name,
             "junction_id": junction_id,  # -1 为非junction，此道路是在交叉口内部
             'road_center_vertices': road_center_vertices,
             'geometry_center_vertices': geometry_center_vertices,  # 每个section 分开，方便微观处理
@@ -123,6 +103,6 @@ def main(work_dir, file_name, step_length=0.5, show=False):
 
 
 if __name__ == '__main__':
-    work_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
-    file_name = "test1"
+    work_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'genjson', 'genjson_files')
+    file_name = "wanji_0701"
     main(work_dir, file_name, show=True)
