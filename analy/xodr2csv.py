@@ -22,33 +22,8 @@ def convert_opendrive(opendrive: OpenDrive, filter_types: list=None) -> Scenario
     road_network.load_opendrive(opendrive)
     # TODO 在此处过滤车道类型
     # 精度 ParametricLaneGroup.to_lanelet(self, precision: float = 0.5)
-    # default filter_types:["driving", "onRamp", "offRamp", "exit", "entry"]
-    laneTypes = [
-        "none",
-        "driving",
-        "stop",
-        "shoulder",
-        "biking",
-        "sidewalk",
-        "border",
-        "restricted",
-        "parking",
-        "bidirectional",
-        "median",
-        "special1",
-        "special2",
-        "special3",
-        "roadWorks",
-        "tram",
-        "rail",
-        "entry",
-        "exit",
-        "offRamp",
-        "onRamp",
-    ]
-    if filter_types:
-        laneTypes = filter_types
-    return road_network.export_commonroad_scenario(filter_types=laneTypes)  # commonroad-io==2020.2 版本需要验证
+    # 如果不传参数，将采取默认的过滤值 ["driving", "onRamp", "offRamp", "exit", "entry"]
+    return road_network.export_commonroad_scenario(filter_types=filter_types)  # commonroad-io==2020.2 版本需要验证
 
 
 def get_basic_info(opendrive, scenario):
@@ -141,7 +116,7 @@ def write_lanes(work_dir, file_name, scenario, lanes_info, road_junction, show=F
     plt.show()
 
 
-def main(work_dir, file_name, step_length=0.5, show=True, filter_types=None):  # step_length需要对第三方包进行修改
+def main(work_dir, file_name, step_length=0.5, show=False, filter_types=None):  # step_length需要对第三方包进行修改
     xodr_file = os.path.join(work_dir, f"{file_name}.xodr")
 
     with open(xodr_file, "r") as file_in:
@@ -160,7 +135,7 @@ def main(work_dir, file_name, step_length=0.5, show=True, filter_types=None):  #
     lanes_info, road_junction = get_basic_info(opendrive, scenario)
 
     # 写入文件&绘制参考线
-    write_lanes(work_dir, file_name.split('.')[0], scenario, lanes_info, road_junction, show)
+    write_lanes(work_dir, file_name, scenario, lanes_info, road_junction, show)
     return lanes_info
 
     # 输出为 xml文件 commroad格式, 需要更改 commonroad-io 版本

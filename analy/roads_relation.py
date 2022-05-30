@@ -9,7 +9,7 @@ from xml.dom.minidom import parse
 from analy.utils import get_Refline, get_elevation, color_c, get_section_info
 
 
-def get_roads_info(xodr, step_length):
+def get_roads_info(xodr, step_length, filter_types):
     root = xodr.documentElement
     links = root.getElementsByTagName('road')
     roads_info = dict()
@@ -32,7 +32,7 @@ def get_roads_info(xodr, step_length):
         # 车道信息
         lanes = road.getElementsByTagName('lanes')[0]  # 每条路段有且仅有一处lanes
         lane_sections = lanes.getElementsByTagName('laneSection')
-        sections_mapping = get_section_info(lane_sections)
+        sections_mapping = get_section_info(lane_sections, filter_types)
 
         # 获取高程信息
         elevationProfiles = road.getElementsByTagName('elevationProfile')
@@ -92,11 +92,11 @@ def write_roads(work_dir, file_name, roads_info, show):
     return sum_xy
 
 
-def main(work_dir, file_name, step_length=0.5, show=False):
+def main(work_dir, file_name, step_length=0.5, show=False, filter_types=None):
     xodr_file = os.path.join(work_dir, f"{file_name}.xodr")
     xodr = parse(xodr_file)
 
-    roads_info = get_roads_info(xodr, step_length)
+    roads_info = get_roads_info(xodr, step_length, filter_types)
     # 写入文件&绘制参考线
     write_roads(work_dir, file_name, roads_info, show)
     return roads_info

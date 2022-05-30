@@ -310,7 +310,7 @@ def get_lane_restrictions(lane):
     }
 
 
-def get_section_info(sections):
+def get_section_info(sections, filter_types):
     # 车道信息
     def default_section():
         return {
@@ -327,6 +327,8 @@ def get_section_info(sections):
         left = lane_section.getElementsByTagName('left')
         if right:
             for lane in right[0].getElementsByTagName('lane'):
+                if filter_types is not None and lane.getAttribute('type') not in filter_types:
+                    continue
                 lane_id = int(lane.getAttribute('id'))
                 sections_mapping[index]['right'].append(lane_id)
                 # 添加属性
@@ -334,6 +336,8 @@ def get_section_info(sections):
 
         if left:
             for lane in left[0].getElementsByTagName('lane'):
+                if filter_types is not None and lane.getAttribute('type') not in filter_types:
+                    continue
                 lane_id = int(lane.getAttribute('id'))
                 sections_mapping[index]['left'].append(lane_id)
                 sections_mapping[index]['infos'][lane_id] = get_lane_restrictions(lane)
