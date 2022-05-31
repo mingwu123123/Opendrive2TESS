@@ -1,30 +1,24 @@
 import os
 import json
 from pyproj import Proj
-from analy import xodr2csv
-from analy import roads_relation
 from numpy import sign
 
 step_length = 0.5
 show = True
 work_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'genjson_files')
 file_name = 'wanji_0701'
-convert_obj = Proj('+proj=tmerc +lon_0=116.2872229585798 +lat_0=40.04753227284374 +ellps=WGS84')  # use kwargs
 
-# lanes_info = xodr2csv.main(work_dir, file_name, step_length, show=show, filter_types=None)
-# roads_info = roads_relation.main(work_dir, file_name, step_length=step_length, show=show)
-# print(lanes_info)
-# print(roads_info)
+with open(os.path.join(work_dir, f"{file_name}.json"), 'r') as f:
+    data = json.load(f)
+header_info = data['header']
+roads_info = data['road']
+lanes_info = data['lane']
+roads_info = {
+    int(k): v for k, v in roads_info.items()
+}
 
-with open(os.path.join(work_dir, f"{file_name}-路段.json"), 'r') as f:
-    roads_info = json.load(f)
-    roads_info = {
-        int(k): v for k, v in roads_info.items()
-    }
 
-with open(os.path.join(work_dir, f"{file_name}-车道.json"), 'r') as f:
-    lanes_info = json.load(f)
-
+convert_obj = Proj(header_info['geo_reference'])  # use kwargs
 
 for lane_name, lane_info in lanes_info.items():
     if not lane_info:  # 此车道只是文件中某车道的前置或者后置车道，仅仅被提及，是空信息，跳过
@@ -168,6 +162,5 @@ def get_geo_json_with_road():
     return geo_info
 
 geo_info = get_geo_json_with_lane()
-print(geo_info)
-json.dump(geo_info, open(f'genjson_files/{file_name}.json', 'w'))
+json.dump(geo_info, open(f'genjson_files/{file_name}-geo.json', 'w'))
 

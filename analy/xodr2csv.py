@@ -66,7 +66,7 @@ def get_basic_info(opendrive, scenario):
     return lanes_info, road_junction
 
 
-def write_lanes(work_dir, file_name, scenario, lanes_info, road_junction, show=False):
+def write_lanes(work_dir, file_name, scenario, lanes_info, road_junction):
     with open(os.path.join(work_dir, f'{file_name}-车道.json'), 'w') as f:
         json.dump(lanes_info, f)
 
@@ -107,16 +107,15 @@ def write_lanes(work_dir, file_name, scenario, lanes_info, road_junction, show=F
                          lanes_info[predecessor_id].get('road_id', ''), predecessor_id,
                          center_string, left_string, right_string])
         index = len(x_list) // 2
-        if show:
-            plt.plot(x_list[:index], y_list[:index], color='g', linestyle="", marker=".", linewidth=1)
-            plt.plot(x_list[index:], y_list[index:], color='r', linestyle="", marker=".", linewidth=1)
+        plt.plot(x_list[:index], y_list[:index], color='g', linestyle="", marker=".", linewidth=1)
+        plt.plot(x_list[index:], y_list[index:], color='r', linestyle="", marker=".", linewidth=1)
 
     f1.close()
     f2.close()
     plt.show()
 
 
-def main(work_dir, file_name, step_length=0.5, show=False, filter_types=None):  # step_length需要对第三方包进行修改
+def main(work_dir, file_name, filter_types, step_length=0.5, detail=False):  # step_length需要对第三方包进行修改
     xodr_file = os.path.join(work_dir, f"{file_name}.xodr")
 
     with open(xodr_file, "r") as file_in:
@@ -127,6 +126,10 @@ def main(work_dir, file_name, step_length=0.5, show=False, filter_types=None):  
         #         if connection.get("connectingRoad") == "460" and connection.get("incomingRoad") == "68":
         #             print(connection.get("contactPoint"))
         opendrive = parse_opendrive(root_node)
+    header_info = {
+        "date": opendrive.header.date,
+        "geo_reference": opendrive.header.geo_reference,
+    }
 
     # ps: 在 junction 里面也会有 lane_name
     # 这一步加载道路信息，比如参考线之类，但同时删除了过多的历史信息，需要手动调整源码
@@ -135,8 +138,9 @@ def main(work_dir, file_name, step_length=0.5, show=False, filter_types=None):  
     lanes_info, road_junction = get_basic_info(opendrive, scenario)
 
     # 写入文件&绘制参考线
-    write_lanes(work_dir, file_name, scenario, lanes_info, road_junction, show)
-    return lanes_info
+    if detail:
+        write_lanes(work_dir, file_name, scenario, lanes_info, road_junction)
+    return header_info, lanes_info
 
     # 输出为 xml文件 commroad格式, 需要更改 commonroad-io 版本
     # path = "test1.xml"
@@ -152,4 +156,6 @@ def main(work_dir, file_name, step_length=0.5, show=False, filter_types=None):  
 if __name__ == "__main__":
     work_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'genjson', 'genjson_files')
     file_name = "wanji_0701"
-    main(work_dir, file_name, show=True, filter_types=None)
+    filter_types = laneTypes = ["none", "driving", "stop", "shoulder", "biking", "sidewalk", "border", "restricted",
+                                "parking", "median", "entry", "exit", "offRamp", "onRamp" 'curb', 'connectingRamp',]
+    main(work_dir, file_name, filter_types=filter_types)

@@ -2,6 +2,7 @@ import json
 import os
 from functools import lru_cache
 import collections
+import matplotlib.pyplot as plt
 
 from math import sin
 from cmath import cos, pi
@@ -52,6 +53,7 @@ def get_integrate(lower, higher, type):
     higher = round(higher, size)
     lower = min(pi, max(lower, -pi))
     higher = min(pi, max(higher, -pi))
+    # print(lower, higher, type)
     return get_integrate_basic(lower, higher, type)
 
 
@@ -177,6 +179,7 @@ def get_Refline(geometrys, step_length):
                 ls = linspace(hdg_start, hdg_end, steps)
                 len_ls = len(ls)
 
+                # from matlab import integral
                 xy = zeros((len_ls, 2))
                 ccc = sqrt(pi * length / abs(curvEnd))  # 半径R = 1/曲率
 
@@ -243,7 +246,21 @@ def get_Refline(geometrys, step_length):
                 index += 1
         else:
             raise Exception("Unknown Geometry !!!")
+        # plt.plot([i[0] for i in xy], [i[1] for i in xy], color=next(color_c), linestyle="", marker=".")
 
+        # 判断是否需要使用插值法
+        # num = init_steps // steps # 是否加一
+        # if use_interp and num > 1:
+        #     x_list = [i[0] for i in xy]
+        #     y_list = [i[1] for i in xy]
+        #     xvals = []
+        #     for index in range(1, len(x_list)):
+        #         if index == len(x_list) - 1:
+        #             xvals += list((np.linspace(x_list[index - 1], x_list[index], num + 1)))
+        #         else:
+        #             xvals += list((np.linspace(x_list[index - 1], x_list[index], num, endpoint=False)))  # 防止重复,末尾数字不添加进等差数列
+        #     yinterp = np.interp(xvals, x_list, y_list)
+        #     xy = list(zip(xvals, yinterp))
         if not isinstance(xy, list):
             xy = xy.tolist()
         init_xy += xy
@@ -266,6 +283,36 @@ def get_elevations(elevations, length):
     ds = length - s
     end_high = a + b * ds + c * ds ** 2 + d * ds ** 3
     return start_high, end_high
+
+def get_elevation(length, coefficients):
+    a, b, c, d = coefficients
+    ds = length # 计算长度
+    high = a + b * ds + c * ds ** 2 + d * ds ** 3
+    return high
+
+def lane_restrictions(lane):
+    speed_info = []
+    access_info = []
+    for speed in lane.getElementsByTagName('speed'):
+        speed_info.append(
+            {
+                "sOffset ": speed.getAttribute("sOffset"),
+                "max": float(speed.getAttribute("max")),
+                "unit": speed.getAttribute("unit"),
+            }
+        )
+    for access in lane.getElementsByTagName('access'):
+        access_info.append(
+            {
+                "sOffset ": access.getAttribute("sOffset"),
+                "rule ": access.getAttribute("rule"),
+                "restriction ": access.getAttribute("restriction"),
+            }
+        )
+    return {
+        "speeds": speed_info,
+        'accesss': access_info,
+    }
 
 
 def get_lane_restrictions(lane):
@@ -327,4 +374,33 @@ def get_section_info(sections, filter_types):
 
         sections_mapping[index]['all'] = sections_mapping[index]['right'] + sections_mapping[index]['left']
         index += 1
+    return sections_mapping
+
+def section_info(sections, filter_types):
+    # 车道信息
+    def default_section():
+        return {
+            'right': [],
+            'center': [],
+            'left': [],
+            'all': [],
+            'infos': {}
+        }
+
+    sections_mapping = collections.defaultdict(default_section)
+    for section in sections:
+        section_id = sections.index(section)
+        for lane in section.allLanes:
+            if filter_types is not None and lane.type not in filter_types:
+                continue
+            if lane.id == 0:
+                direction = 'center'
+            elif lane.id >= 0:
+                direction = 'left'
+            else:
+                direction = 'right'
+            sections_mapping[section_id][direction].append(lane.id)
+            # sections_mapping[index]['infos'][lane.id] = get_lane_restrictions(lane)
+
+        sections_mapping[section_id]['all'] = sections_mapping[section_id]['right'] + sections_mapping[section_id]['left'] + sections_mapping[section_id]['center']
     return sections_mapping

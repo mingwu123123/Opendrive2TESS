@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import csv
 
 from xml.dom.minidom import parse
-from analy.utils import get_Refline, get_elevation, color_c, get_section_info
+from analy.utils import get_Refline, get_elevations, color_c, get_section_info
 
 
 def get_roads_info(xodr, step_length, filter_types):
@@ -41,7 +41,7 @@ def get_roads_info(xodr, step_length, filter_types):
         else:
             # 高程 和 section 是互相独立的
             elevations = elevationProfiles[0].getElementsByTagName('elevation')
-            start_high, end_high = get_elevation(elevations, road_length)
+            start_high, end_high = get_elevations(elevations, road_length)
 
         roads_info[road_id] = {
             "name": road_name,
@@ -58,7 +58,7 @@ def get_roads_info(xodr, step_length, filter_types):
     return roads_info
 
 
-def write_roads(work_dir, file_name, roads_info, show):
+def write_roads(work_dir, file_name, roads_info):
     with open(os.path.join(work_dir, f"{file_name}-路段.json"), 'w') as f:
         json.dump(roads_info, f)
 
@@ -78,31 +78,32 @@ def write_roads(work_dir, file_name, roads_info, show):
 
         if road_data['junction_id'] == -1:  # 非路口
             writer1.writerow([road_id, '', road_data['length'], center_string, '', ''])
-            if show:
-                color = 'r'
-                plt.plot([i[0] for i in sum_xy], [i[1] for i in sum_xy], color=color, linestyle="", marker=".")
+            color = 'r'
+            plt.plot([i[0] for i in sum_xy], [i[1] for i in sum_xy], color=color, linestyle="", marker=".")
         else:
             writer2.writerow([road_id, road_data['length'], center_string, '', ''])
-            if show:
-                color = 'g'
-                plt.plot([i[0] for i in sum_xy], [i[1] for i in sum_xy], color=color, linestyle="", marker=".")
+            color = 'g'
+            plt.plot([i[0] for i in sum_xy], [i[1] for i in sum_xy], color=color, linestyle="", marker=".")
     plt.show()
     f1.close()
     f2.close()
     return sum_xy
 
 
-def main(work_dir, file_name, step_length=0.5, show=False, filter_types=None):
+def main(work_dir, file_name, filter_types, step_length=0.5, detail=False):
     xodr_file = os.path.join(work_dir, f"{file_name}.xodr")
     xodr = parse(xodr_file)
 
     roads_info = get_roads_info(xodr, step_length, filter_types)
     # 写入文件&绘制参考线
-    write_roads(work_dir, file_name, roads_info, show)
+    if detail:
+        write_roads(work_dir, file_name, roads_info)
     return roads_info
 
 
 if __name__ == '__main__':
     work_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'genjson', 'genjson_files')
     file_name = "wanji_0701"
-    main(work_dir, file_name, show=True)
+    filter_types = laneTypes = ["none", "driving", "stop", "shoulder", "biking", "sidewalk", "border", "restricted",
+                                "parking", "median", "entry", "exit", "offRamp", "onRamp" 'curb', 'connectingRamp', ]
+    main(work_dir, file_name, filter_types)

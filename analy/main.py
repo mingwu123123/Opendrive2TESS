@@ -1,14 +1,15 @@
 import os
+import json
 
 import xodr2csv
 import roads_relation
 
 if __name__ == '__main__':
     step_length = 0.5
-    show = True
+    detail = False
     # 定义静态文件及所处位置文件夹
-    work_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
-    file_name = 'hdmap1.4_foshan_20220111'
+    work_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'genjson', 'genjson_files')
+    file_name = 'wanji_0701'
     laneTypes = [
         "none",
         "driving",
@@ -36,9 +37,14 @@ if __name__ == '__main__':
         'connectingRamp',  # 连接匝道
     ]
 
-
+    filter_types = laneTypes
     # TODO 注意对第三方包的修改 --> change_convert.py
-    roads_info = roads_relation.main(work_dir, file_name, step_length=step_length, show=show, filter_types=laneTypes)
-    lanes_info = xodr2csv.main(work_dir, file_name, step_length, show=show, filter_types=laneTypes)
-    print(lanes_info)
-    print(roads_info)
+    roads_info = roads_relation.main(work_dir, file_name, filter_types, step_length=step_length)
+    header_info, lanes_info = xodr2csv.main(work_dir, file_name, filter_types, step_length)
+    road_lane_info = {
+        "header": header_info,
+        "road": roads_info,
+        "lane": lanes_info,
+    }
+    with open(os.path.join(work_dir, f"{file_name}.json"), 'w') as f:
+        json.dump(road_lane_info, f)
