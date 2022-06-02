@@ -8,8 +8,8 @@ if __name__ == '__main__':
     step_length = 0.5
     detail = False
     # 定义静态文件及所处位置文件夹
-    work_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'genjson', 'genjson_files')
-    file_name = 'wanji_0701'
+    work_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
+    file_name = '第II类路网'
     laneTypes = [
         "none",
         "driving",
@@ -37,7 +37,7 @@ if __name__ == '__main__':
         'connectingRamp',  # 连接匝道
     ]
 
-    filter_types = laneTypes
+    filter_types = ['driving']
     # TODO 注意对第三方包的修改 --> change_convert.py
     roads_info = roads_relation.main(work_dir, file_name, filter_types, step_length=step_length)
     header_info, lanes_info = xodr2csv.main(work_dir, file_name, filter_types, step_length)

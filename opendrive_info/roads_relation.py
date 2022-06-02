@@ -17,9 +17,6 @@ def get_roads_info(xodr, step_length, filter_types):
         # 多条路段
         road_id = int(road.getAttribute('id'))
         road_name = road.getAttribute('name')
-        # if road_name not in ["434029", "434031", "434033", "434034", '434030']:
-        #     continue
-        # print(road_id)
 
         junction_id = int(road.getAttribute('junction'))
 
