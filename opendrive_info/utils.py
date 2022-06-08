@@ -1,8 +1,7 @@
 import json
 import os
 import collections
-from matlab import linspace
-import numpy as np
+from matlab import linspace, sqrt
 
 import matplotlib.pyplot as plt
 from commonroad.scenario.scenario import Scenario
@@ -31,11 +30,16 @@ def calc_elevation(pos, elevations):
         if pos >= e.start_pos:
             elevation = e
     a, b, c, d = elevation.polynomial_coefficients
-    ds = pos  # 计算长度
+    ds = pos - elevation.start_pos  # 每当新的元素出现，`ds`则清零
     high = a + b * ds + c * ds ** 2 + d * ds ** 3
     return high
 
-
+def calc_width(l1, l2):
+    width_list = []
+    for index in range(len(l1)):
+        width = sqrt((l1[index][0] - l2[index][0]) ** 2 + (l1[index][1] - l2[index][1]) ** 2)
+        width_list.append(width)
+    return width_list
 
 def convert_roads_info(opendrive, filter_types, step_length=0.5):  # step_length需要对第三方包进行修改
     roads_info = {}
@@ -52,7 +56,7 @@ def convert_roads_info(opendrive, filter_types, step_length=0.5):  # step_length
             section_ePos = section_sPos + section_length
 
             steps = int(section_length // step_length + 1)  # steps >= 2
-            lengths = linspace(section_sPos, section_ePos, steps)
+            lengths = list(linspace(section_sPos, section_ePos, steps))
             # lengths = list(road_section_distance[road.id][section_id].values())[0] # 尽量拟合路段与车道
             # 计算每一点的坐标和角度
             for length in lengths:
@@ -69,8 +73,9 @@ def convert_roads_info(opendrive, filter_types, step_length=0.5):  # step_length
                 "points": points,
                 'sPos': section_sPos,
                 'ePos': section_ePos,
-                'steps': steps,
                 'length': section_length,
+                'steps': steps,
+                'lengths': lengths,
             }
 
         # 计算每一段section 的高程信息
@@ -100,7 +105,7 @@ def convert_roads_info(opendrive, filter_types, step_length=0.5):  # step_length
     return roads_info
 
 
-def convert_lanes_info(opendrive, scenario, roads_info):
+def convert_lanes_info(opendrive, scenario):
     # 获取 link与交叉口关系
     road_junction = {}
     for road in opendrive.roads:
@@ -119,14 +124,18 @@ def convert_lanes_info(opendrive, scenario, roads_info):
         # if section_id not in road_section_distance[road_id].keys():
         #     road_section_distance[road_id][section_id] = {}
         # road_section_distance[road_id][section_id][lane_id] = lane.distance
-        count = len(lane.center_vertices) - roads_info[road_id]['road_points'][section_id]['steps']
-        if count:
-            print(len(lane.center_vertices), count)
-            for i in range(count):
-                lane.center_vertices = np.delete(lane.center_vertices, len(lane.center_vertices) // 2, 0)
-                lane.left_vertices = np.delete(lane.left_vertices, len(lane.left_vertices) // 2, 0)
-                lane.right_vertices = np.delete(lane.right_vertices, len(lane.right_vertices) // 2, 0)
-            print(len(lane.center_vertices))
+        # count = len(lane.center_vertices) - roads_info[road_id]['road_points'][section_id]['steps']
+        # if count:
+        #     print(len(lane.center_vertices), count)
+        #     for i in range(count):
+        #         lane.center_vertices = np.delete(lane.center_vertices, len(lane.center_vertices) // 2, 0)
+        #         lane.left_vertices = np.delete(lane.left_vertices, len(lane.left_vertices) // 2, 0)
+        #         lane.right_vertices = np.delete(lane.right_vertices, len(lane.right_vertices) // 2, 0)
+        #     print(len(lane.center_vertices))
+
+        # 计算车道宽度
+        center_vertices, left_vertices, right_vertices = lane.center_vertices.tolist(), lane.left_vertices.tolist(), lane.right_vertices.tolist()
+        widths = calc_width(left_vertices, right_vertices)
 
         # lane.lanelet_id 自定义的车道编号,取消转换后，指的就是原始编号
         lanes_info[lane.lanelet_id] = {
@@ -145,9 +154,10 @@ def convert_lanes_info(opendrive, scenario, roads_info):
             "successor_ids": lane.successor,
             "type": lane.type,
             "name": lane_name,  # road_id+lane_section+lane_id+-1
-            "center_vertices": lane.center_vertices.tolist(),
-            "left_vertices": lane.left_vertices.tolist(),
-            "right_vertices": lane.right_vertices.tolist(),
+            "center_vertices": center_vertices,
+            "left_vertices": left_vertices,
+            "right_vertices": right_vertices,
+            "widths": widths,
             'traffic_lights': list(lane.traffic_lights),
             'traffic_signs': list(lane.traffic_signs),
             'distance': list(lane.distance),

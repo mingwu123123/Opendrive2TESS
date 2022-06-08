@@ -22,7 +22,8 @@ def main(work_dir, file_name, filter_types, step_length=0.5, detail=False):
     roads_info = convert_roads_info(opendrive, filter_types, step_length)
     # lane step_length需要对第三方包进行修改
     scenario = convert_opendrive(opendrive, filter_types, roads_info)
-    lanes_info, road_junction, road_section_distance = convert_lanes_info(opendrive, scenario, roads_info)
+    # 车道点位不再独立计算，采用road info 中参考线的点位
+    lanes_info, road_junction, road_section_distance = convert_lanes_info(opendrive, scenario)
 
     # 写入文件&绘制参考线
     if detail:
@@ -64,7 +65,7 @@ if __name__ == '__main__':
         'connectingRamp',  # 连接两条高速公路的匝道
     ]
     filter_types = laneTypes
-    # filter_types = ["driving", "onRamp", "offRamp", "exit", "entry"]  # 一般用于机动车行驶的车道
+    filter_types = ["driving", "onRamp", "offRamp", "exit", "entry"]  # 一般用于机动车行驶的车道
     # filter_types = ["driving", "biking", "parking", "onRamp", "offRamp", "exit", "entry", "connectingRamp"]
     # TODO 注意对第三方包的修改 --> change_convert.py
     header_info, roads_info, lanes_info = main(work_dir, file_name, filter_types, step_length=step_length,
