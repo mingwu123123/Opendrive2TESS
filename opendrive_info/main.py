@@ -37,7 +37,7 @@ if __name__ == '__main__':
     detail = False
     # 定义静态文件及所处位置文件夹
     work_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
-    file_name = 'map_hz_kaifangroad'
+    file_name = 'hdmap1.4_foshan_20220111'
     laneTypes = [
         "none",  # 不应有车辆在上面行驶的车道
         "restricted",  # 不应有车辆在上面行驶的车道
@@ -77,6 +77,9 @@ if __name__ == '__main__':
     }
     with open(os.path.join(work_dir, f"{file_name}.json"), 'w') as f:
         json.dump(road_lane_info, f)
+
+
+
 
     # show section with lanes 已经确认参考线和车道线是一致的，并未出现参考线过长现象
     # with open(os.path.join(work_dir, f"{file_name}.json"), 'r') as f:

@@ -54,6 +54,7 @@ def export_lanelet_network(
 
     return lanelet_network
 
+
 def to_lanelet(self, precision: float = 0.5, poses=None) -> ConversionLanelet:
     """Convert a ParametricLaneGroup to a Lanelet.
 
@@ -68,30 +69,28 @@ def to_lanelet(self, precision: float = 0.5, poses=None) -> ConversionLanelet:
       Created Lanelet.
 
     """
+    print(poses)
     left_vertices, right_vertices = np.array([]), np.array([])
-    if self.id_ == '2.1.4.-1':
-        print(1)
-    self.parametric_lanes.sort(key=lambda x: x.id_)
-    for parametric_lane in self.parametric_lanes:
-        # 通过 lane 点序列 获取 width 点序列
-        if parametric_lane == self.parametric_lanes[-1]:
-            local_left_vertices, local_right_vertices = parametric_lane.calc_vertices(
-                precision=precision, poses=poses
-            )
-            print(len(local_left_vertices))
+    parametric_lane_poses = {}
+    temp_parametric_lanes = sorted(self.parametric_lanes, key=lambda x: int(x.id_.split('.')[-1]))
+    for parametric_lane in temp_parametric_lanes:
+        if parametric_lane == temp_parametric_lanes[-1]:
+            parametric_lane_poses[parametric_lane.id_] = poses
         else:
             for index in range(len(poses)):
                 if poses[index] > parametric_lane.length:
-                    local_left_vertices, local_right_vertices = parametric_lane.calc_vertices(
-                        precision=precision, poses=poses[:index]
-                    )
-                    # poses 匹配width成功后移除匹配的元素
-                    poses = [i - poses[index] for i in poses[index:]]
+                    parametric_lane_poses[parametric_lane.id_] = copy.copy(poses[:index])
+                    # poses 匹配width成功后移除匹配的元素, 减去 parametric_lane.length，否则后续可能长度不够用
+                    poses = [i - parametric_lane.length for i in poses[index:]]
                     break
-
-        # local_left_vertices, local_right_vertices = parametric_lane.calc_vertices(
-        #     precision=precision, poses=poses
-        # )
+    # self.parametric_lanes.sort(key=lambda x:x.id_)
+    for parametric_lane in self.parametric_lanes:
+        # 通过 lane 点序列 获取 width 点序列， 特殊情况下，点序列可能为空
+        if not parametric_lane_poses[parametric_lane.id_]:
+            continue
+        local_left_vertices, local_right_vertices = parametric_lane.calc_vertices(
+            precision=precision, poses=parametric_lane_poses[parametric_lane.id_]
+        )
 
         if local_left_vertices is None:
             continue
@@ -118,7 +117,6 @@ def to_lanelet(self, precision: float = 0.5, poses=None) -> ConversionLanelet:
     self._set_adjacent_lanes(lanelet)
 
     return lanelet
-
 
 
 def calc_vertices(self, precision: float = 0.5, poses=None) -> Tuple[np.ndarray, np.ndarray]:
