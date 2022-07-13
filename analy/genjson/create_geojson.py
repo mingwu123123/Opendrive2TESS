@@ -6,13 +6,13 @@ from numpy import sign
 step_length = 0.5
 show = True
 work_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'genjson_files')
-file_name = 'wanji_0701'
+file_name = 'test'
 
 with open(os.path.join(work_dir, f"{file_name}.json"), 'r') as f:
     data = json.load(f)
-header_info = data['header']
-roads_info = data['road']
-lanes_info = data['lane']
+header_info = data['header_info']
+roads_info = data['roads_info']
+lanes_info = data['lanes_info']
 roads_info = {
     int(k): v for k, v in roads_info.items()
 }
@@ -24,6 +24,9 @@ for lane_name, lane_info in lanes_info.items():
     if not lane_info:  # 此车道只是文件中某车道的前置或者后置车道，仅仅被提及，是空信息，跳过
         continue
     road_id = lane_info['road_id']
+
+    if road_id not in roads_info.keys():
+        continue
     section_id = lane_info['section_id']
     lane_id = lane_info['lane_id']
 
@@ -80,6 +83,8 @@ def get_geo_json_with_lane():
         fromLaneIdsList = lane_info['predecessor_ids']
         toLaneIdsList = lane_info['successor_ids']
         road_id = int(lane_name.split(".")[0])
+        if road_id not in roads_info.keys():
+            continue
         section_id = int(lane_name.split(".")[1])
         lane_id = int(lane_name.split(".")[2])
 

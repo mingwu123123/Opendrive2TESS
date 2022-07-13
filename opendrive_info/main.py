@@ -1,5 +1,7 @@
 import os
 import json
+import time
+
 from lxml import etree
 from opendrive2lanelet.opendriveparser.parser import parse_opendrive
 from opendrive_info.utils import convert_opendrive, convert_roads_info, write_lanes, convert_lanes_info, write_roads
@@ -33,11 +35,12 @@ def main(work_dir, file_name, filter_types, step_length=0.5, detail=False):
 
 
 if __name__ == '__main__':
+    start_time = time.time()
     step_length = 0.5
     detail = False
     # 定义静态文件及所处位置文件夹
     work_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
-    file_name = 'hdmap1.4_foshan_20220111'
+    file_name = '第I类路网'
     laneTypes = [
         "none",  # 不应有车辆在上面行驶的车道
         "restricted",  # 不应有车辆在上面行驶的车道
@@ -75,9 +78,23 @@ if __name__ == '__main__':
         "road": roads_info,
         "lane": lanes_info,
     }
-    with open(os.path.join(work_dir, f"{file_name}.json"), 'w') as f:
-        json.dump(road_lane_info, f)
-
+    print(road_lane_info)
+    # with open(os.path.join(work_dir, f"{file_name}.json"), 'w') as f:
+    #     json.dump(road_lane_info, f)
+    print(time.time()-start_time)
+    xy_limit = [None] * 4  # x1,x2,y1,y2
+    for road_id, road_info in roads_info.items():
+        if road_info['junction_id'] == None:
+            road_info['junction_id'] = -1
+        # 记录 坐标点的极值
+        for section_id, points in road_info['road_points'].items():
+            for point in points['points']:
+                position = point['position']
+                xy_limit[0] = min(xy_limit[0], position[0]) if xy_limit[0] is not None else position[0]
+                xy_limit[1] = max(xy_limit[1], position[0]) if xy_limit[1] is not None else position[0]
+                xy_limit[2] = min(xy_limit[2], position[1]) if xy_limit[2] is not None else position[1]
+                xy_limit[3] = max(xy_limit[3], position[1]) if xy_limit[3] is not None else position[1]
+    print(xy_limit)
 
 
 

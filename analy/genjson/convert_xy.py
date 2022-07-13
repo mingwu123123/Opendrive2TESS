@@ -1,55 +1,32 @@
-# import js2py
-#
-# with open('genjson_files/proj4-src.js') as f:
-#     js_content = f.read()
-#
-# context = js2py.EvalJs()
-# context.execute(js_content)
-# # result = context.defs('WGS84', "+title=WGS 84 (long/lat) +proj=longlat +ellps=WGS84 +datum=WGS84 +units=degrees")
-# result = context.defs(
-#
-# )
-# print(result)
-
-import pyproj
-
-# pyproj.transform()
-
-def proj_trans():
-
-    # 读取经纬度
-    #
-    # data = pd.read_excel(u"D:/Visualization/python/file/location.xlsx")
-    #
-    # lon = data.lon.values
-    #
-    # lat = data.lat.values
-    #
-    # print lon, lat
-    lon = [116.366]
-    lat = [39.8673]
-
-    p1 = pyproj.Proj(init="epsg:4326")  # 定义数据地理坐标系
-
-    p2 = pyproj.Proj(init="epsg:3857")  # 定义转换投影坐标系
-
-    x1, y1 = p1(lon, lat)
-
-    x2, y2 = pyproj.transform(p1, p2, x1, y1, radians=True)
-    print(x2, y2)
-# proj_trans()
-
 from pyproj import Proj
+import csv
+
+reader = csv.reader(open('轨迹_车辆轨迹.csv', 'r'))
+next(reader)
 
 
-p = Proj(proj='tmerc', ellps='WGS84', preserve_units=False) # use kwargs
-x,y = p(116.2872229585798, 40.04753227284374)
-print(tuple((x,y)))
-lons = (-119.72,-118.40,-122.38)
-lats = (36.77, 33.93, 37.62 )
-x,y = p(lons, lats)
-print(x,y)
+x_move, y_move = (435.1175237488712 - (92.18007) + (-660.94688), 3758.567728138013 - (-458.675) + (-155.35))
 
-p = Proj('+proj=tmerc +lon_0=116.2872229585798 +lat_0=40.04753227284374 +ellps=WGS84') # use kwargs
-x,y = p(0, 0, inverse=True)
-print(x,y)
+p = Proj('+proj=tmerc +lon_0=119.91001546382904 +lat_0=30.510201559984594 +ellps=WGS84') # use kwargs
+print(p(0, 0, inverse=True))
+for lane in reader:
+    x, y = lane[6], lane[7]
+    x, y = x + x_move, y + y_move
+    lon, lat = p(x, y, reversed=True)
+    print(lon, lat)
+
+
+
+xy_limit = [-776.558614300042, -733.9176933802678, 3308.807624498371, 3336.3131050797983]
+x_move, y_move = sum(xy_limit[:2]) / 2, sum(xy_limit[2:]) / 2 if xy_limit else (0, 0)
+
+# p = Proj('+proj=tmerc +lon_0=119.91001546382904 +lat_0=30.510201559984594 +ellps=WGS84')
+# x, y = -25, -7
+# x, y = x / 1.33 + x_move,-( y/1.33) + y_move
+# print(p(x, y, inverse=True))
+
+
+# 上：119.90401335060596,30.555825645199448
+# 下：119.90892481058835,30.537969697359024
+# 左：119.90360632538795,30.541203588335247
+# 浙江高速门架经纬度：[119.90693092346191, 30.544096644107]

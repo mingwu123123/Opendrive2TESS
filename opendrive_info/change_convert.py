@@ -1,6 +1,32 @@
 road_network.export_commonroad_scenario(filter_types=filter_types, roads_info=roads_info)
 
 
+class Lane:
+    """ """
+
+    laneTypes = [
+        "none",
+        "driving",
+        "stop",
+        "shoulder",
+        "biking",
+        "sidewalk",
+        "border",
+        "restricted",
+        "parking",
+        "bidirectional",
+        "median",
+        "special1",
+        "special2",
+        "special3",
+        "roadWorks",
+        "tram",
+        "rail",
+        "entry",
+        "exit",
+        "offRamp",
+        "onRamp",
+    ]
 
 def export_lanelet_network(
         self, filter_types: list = None, roads_info=None
